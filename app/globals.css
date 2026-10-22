@@ -1,0 +1,9 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: #f4f6f9; color: #172033; }
+main { max-width: 1000px; margin: 36px auto; padding: 24px; }
+.panel { background: white; border: 1px solid #e1e6ee; border-radius: 14px; padding: 22px; margin: 14px 0; }
+input, button { padding: 11px 12px; border-radius: 8px; border: 1px solid #ccd4df; font: inherit; }
+input { display:block; width:100%; margin:8px 0 16px; }
+button { background:#153b67; color:white; cursor:pointer; border:0; }
+a { color:#1455a0; margin-right:12px; }
+small, .muted { color:#64748b; }
