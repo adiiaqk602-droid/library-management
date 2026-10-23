@@ -8,3 +8,4 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <button type="submit">Sign in</button></form>
       <p className="muted">Accounts are created by the system administrator.</p></div></main>;
 }
+
