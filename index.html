@@ -36,6 +36,7 @@
   <nav class="tabs">
     <button data-tab="dashboard" class="active">Dashboard</button>
     <button data-tab="books">Books & Copies</button>
+    <button data-tab="categories">Categories</button>
     <button data-tab="libraries">Libraries</button>
     <button data-tab="members">Members</button>
     <button data-tab="loans">Issue / Return</button>
@@ -67,6 +68,18 @@
     </form>
     <div class="tableWrap"><table><thead><tr><th>Title / Author</th><th>Library</th><th>Category</th><th>Total</th><th>Available</th><th>Issued</th><th>Actions</th></tr></thead><tbody id="bookRows"></tbody></table></div>
     <h3>Physical copy labels</h3><p class="muted small">Use Print Labels in a book row. Each physical copy receives its own unique Copy ID.</p>
+  </section>
+  <section id="categories" class="tab panel hidden">
+    <div class="sectionHead"><div><h2>Category Management</h2><p class="muted">Category codes are generated automatically. Only Super Admin can add, edit, or delete categories.</p></div><button id="resetCategoryForm" class="secondary" type="button">Clear Form</button></div>
+    <form id="categoryForm" class="formGrid">
+      <input type="hidden" name="id">
+      <label>Category Name *<input name="name" id="categoryName" required maxlength="120" placeholder="e.g. Islamic Books"></label>
+      <label>Category Code (auto-generated)<input name="code" id="categoryCode" readonly placeholder="Generated from category name"></label>
+      <label>Category Type<select name="category_type"><option>General</option><option>New</option><option>Old</option><option>Donate</option></select></label>
+      <label class="wide">Description<textarea name="description" rows="2" placeholder="Which books belong in this category?"></textarea></label>
+      <button id="saveCategoryBtn" type="submit">Save Category</button>
+    </form>
+    <div class="tableWrap"><table><thead><tr><th>Category Code</th><th>Name</th><th>Type</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead><tbody id="categoryRows"></tbody></table></div>
   </section>
   <section id="libraries" class="tab panel hidden"><h2>Five Libraries</h2><div id="libraryCards" class="libraryGrid"></div><p class="muted small">Library records are seeded by the database script.</p></section>
   <section id="members" class="tab panel hidden">

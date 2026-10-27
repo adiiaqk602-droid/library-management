@@ -24,6 +24,11 @@
     $('loginPanel').classList.add('hidden'); $('appPanel').classList.remove('hidden');
     $('welcome').textContent=p.full_name || user.email || 'AQK User';
     $('roleLine').textContent=`Role: ${p.role.replace('_',' ')} · ${p.library_id || 'All libraries'}`;
+    const categoryAdmin = p.role === 'super_admin';
+    $('categoryForm').querySelectorAll('input,select,textarea,button').forEach(el => {
+      if (el.name !== 'id') el.disabled = !categoryAdmin;
+    });
+    $('resetCategoryForm').disabled = !categoryAdmin;
     await loadAll();
   }
   $('loginForm').addEventListener('submit',async e=>{
@@ -57,6 +62,7 @@
   }
   function render(){
     $('libraryCards').innerHTML=libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code||'')}</p></div>`).join('');
+    $('categoryRows').innerHTML=categories.map(c=>`<tr><td><b>${safe(c.code||'')}</b></td><td>${safe(c.name)}</td><td>${safe(c.category_type||'General')}</td><td>${safe(c.description||'')}</td><td>${c.active===false?'Inactive':'Active'}</td><td>${profile.role==='super_admin'?`<button type="button" class="actionBtn" onclick="window.editAQKCategory('${safe(c.id)}')">Edit</button><button type="button" class="actionBtn secondary" onclick="window.deleteAQKCategory('${safe(c.id)}')">Delete</button>`:'Admin only'}</td></tr>`).join('');
     selectOptions($('bookLibrary'),libraries,l=>l.name);
     selectOptions($('memberLibrary'),libraries,l=>l.name);
     selectOptions($('bookCategory'),categories,c=>c.name);
@@ -73,6 +79,67 @@
     $('stats').innerHTML=[['Libraries',libraries.length],['Book titles',books.length],['Physical copies',copies.length],['Currently issued',active]].map(s=>`<div class="stat"><span class="muted">${s[0]}</span><strong>${s[1]}</strong></div>`).join('');
     $('statusText').textContent=`Signed in as ${profile.role}. Database connected.`;
   }
+
+  const categoryPrefix = name => {
+    const words = String(name || '').trim().toUpperCase().match(/[A-Z0-9]+/g) || [];
+    if (!words.length) return 'CAT';
+    return words[0].slice(0,3).padEnd(3,'X');
+  };
+  function refreshCategoryCode(){
+    const name = $('categoryName').value.trim();
+    if (!$('categoryForm').elements.id.value) {
+      const prefix = categoryPrefix(name);
+      const nums = categories.map(c => {
+        const m = String(c.code||'').match(new RegExp('^'+prefix+'-(\\d+)$'));
+        return m ? Number(m[1]) : 0;
+      });
+      $('categoryCode').value = name ? `${prefix}-${String(Math.max(0,...nums)+1).padStart(3,'0')}` : '';
+    }
+  }
+  $('categoryName').addEventListener('input',refreshCategoryCode);
+  $('resetCategoryForm').addEventListener('click',()=>{
+    $('categoryForm').reset();
+    $('categoryForm').elements.id.value='';
+    $('categoryCode').readOnly=true;
+    $('saveCategoryBtn').textContent='Save Category';
+    refreshCategoryCode();
+  });
+  $('categoryForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    if(profile.role!=='super_admin'){say('Only Super Admin can manage categories.');return;}
+    const f=new FormData(e.currentTarget);
+    const id=String(f.get('id')||'').trim();
+    const name=String(f.get('name')||'').trim();
+    if(!name){say('Category name is required.');return;}
+    refreshCategoryCode();
+    const row={name,code:String(f.get('code')||'').trim(),category_type:String(f.get('category_type')||'General'),description:String(f.get('description')||'').trim()||null,active:true};
+    let result;
+    if(id) result=await client.from('categories').update(row).eq('id',id);
+    else result=await client.from('categories').insert(row);
+    if(result.error){say('Category save failed: '+result.error.message);return;}
+    say(id?'Category updated successfully.':'Category added successfully with code '+row.code+'.');
+    e.currentTarget.reset();e.currentTarget.elements.id.value='';$('saveCategoryBtn').textContent='Save Category';
+    await loadAll();
+    refreshCategoryCode();
+  });
+  window.editAQKCategory=id=>{
+    if(profile.role!=='super_admin'){say('Only Super Admin can edit categories.');return;}
+    const c=categories.find(x=>x.id===id);if(!c)return;
+    const f=$('categoryForm');
+    f.elements.id.value=c.id;f.elements.name.value=c.name||'';f.elements.code.value=c.code||'';
+    f.elements.category_type.value=c.category_type||'General';f.elements.description.value=c.description||'';
+    $('saveCategoryBtn').textContent='Update Category';
+    $('categoryName').focus();
+  };
+  window.deleteAQKCategory=async id=>{
+    if(profile.role!=='super_admin'){say('Only Super Admin can delete categories.');return;}
+    const c=categories.find(x=>x.id===id);if(!c)return;
+    if(!confirm(`Delete category "${c.name}"? If books use this category, the database may reject deletion.`))return;
+    const {error}=await client.from('categories').delete().eq('id',id);
+    if(error){say('Category delete failed: '+error.message+' (If books are linked, first reassign those books.)');return;}
+    say('Category deleted.');await loadAll();
+  };
+
   $('bookForm').addEventListener('submit',async e=>{
     e.preventDefault(); const f=new FormData(e.currentTarget), count=Math.max(1,Number(f.get('copy_count'))||1);
     const row={title:f.get('title').trim(),author:f.get('author')||null,isbn:f.get('isbn')||null,vendor:f.get('vendor')||null,edition:f.get('edition')||null,pages:Number(f.get('pages'))||null,price:Number(f.get('price'))||0,category_id:f.get('category_id')||null,library_id:f.get('library_id'),wing_name:f.get('wing_name')||null,rack_name:f.get('rack_name')||null,condition:f.get('condition'),stock_type:f.get('stock_type'),description:f.get('description')||null};
