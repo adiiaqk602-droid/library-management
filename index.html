@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQK Library Online System</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<header class="brand">
+  <div class="logos">
+    <img src="college-logo.png" alt="Dr A Q Khan School & College logo" onerror="this.style.display='none'">
+    <div><h1>Dr A Q Khan School &amp; College</h1><p>Bahria Town Phase-8 · Library Management System</p></div>
+    <img src="bahria-logo.png" alt="Bahria Town logo" onerror="this.style.display='none'">
+  </div>
+</header>
+<main>
+<section id="setupNotice" class="notice hidden"></section>
+<section id="loginPanel" class="panel login">
+  <h2>Secure Login</h2>
+  <p>Use the account you created in your own Supabase project.</p>
+  <form id="loginForm">
+    <label>Email<input id="email" type="email" required autocomplete="username"></label>
+    <label>Password<input id="password" type="password" required autocomplete="current-password"></label>
+    <button type="submit">Sign in</button>
+  </form>
+  <p class="muted small">For safety, this page does not provide public self-registration. The administrator creates accounts.</p>
+  <div id="loginMessage" role="status"></div>
+</section>
+<section id="appPanel" class="hidden">
+  <div class="toolbar panel">
+    <div><strong id="welcome"></strong><div class="muted small" id="roleLine"></div></div>
+    <button id="logoutBtn" class="secondary">Sign out</button>
+  </div>
+  <nav class="tabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="books">Books & Copies</button>
+    <button data-tab="libraries">Libraries</button>
+    <button data-tab="members">Members</button>
+    <button data-tab="loans">Issue / Return</button>
+  </nav>
+  <section id="dashboard" class="tab panel">
+    <h2>Dashboard</h2><div class="stats" id="stats"></div>
+    <h3>System status</h3><p id="statusText">Loading…</p>
+    <p class="muted small">Counts are limited by your account permissions.</p>
+  </section>
+  <section id="books" class="tab panel hidden">
+    <div class="sectionHead"><div><h2>Books & Physical Copies</h2><p class="muted">A title is separate from each physical copy.</p></div><button id="refreshBooks" class="secondary">Refresh</button></div>
+    <form id="bookForm" class="formGrid">
+      <label>Title *<input name="title" required></label>
+      <label>Author<input name="author"></label>
+      <label>ISBN<input name="isbn"></label>
+      <label>Vendor / Publisher<input name="vendor"></label>
+      <label>Edition<input name="edition"></label>
+      <label>Pages<input name="pages" type="number" min="0"></label>
+      <label>Price per copy (Rs.)<input name="price" type="number" min="0" step="0.01" value="0"></label>
+      <label>Category<select name="category_id" id="bookCategory"><option value="">Choose category</option></select></label>
+      <label>Library<select name="library_id" id="bookLibrary" required></select></label>
+      <label>Wing<input name="wing_name" placeholder="e.g. BS Wing"></label>
+      <label>Rack / Shelf<input name="rack_name"></label>
+      <label>Condition<select name="condition"><option>Good</option><option>New</option><option>Old</option><option>Damaged</option><option>Repair</option><option>Binding needed</option><option>Lost</option></select></label>
+      <label>Stock type<select name="stock_type"><option>General</option><option>New</option><option>Old</option><option>Donate</option></select></label>
+      <label>Number of copies *<input name="copy_count" type="number" min="1" value="1" required></label>
+      <label class="wide">Description<textarea name="description" rows="2"></textarea></label>
+      <button type="submit">Save Book & Generate Copy IDs</button>
+    </form>
+    <div class="tableWrap"><table><thead><tr><th>Title / Author</th><th>Library</th><th>Category</th><th>Total</th><th>Available</th><th>Issued</th><th>Actions</th></tr></thead><tbody id="bookRows"></tbody></table></div>
+    <h3>Physical copy labels</h3><p class="muted small">Use Print Labels in a book row. Each physical copy receives its own unique Copy ID.</p>
+  </section>
+  <section id="libraries" class="tab panel hidden"><h2>Five Libraries</h2><div id="libraryCards" class="libraryGrid"></div><p class="muted small">Library records are seeded by the database script.</p></section>
+  <section id="members" class="tab panel hidden">
+    <h2>Members</h2>
+    <form id="memberForm" class="formGrid">
+      <label>Full name *<input name="full_name" required></label><label>Member type<select name="member_type"><option>Student</option><option>Teacher</option><option>Staff</option></select></label>
+      <label>College ID / Roll No<input name="college_id"></label><label>Class / Department<input name="class_department"></label>
+      <label>Father / Guardian name<input name="father_name"></label><label>Contact<input name="contact"></label><label>Email<input name="email" type="email"></label>
+      <label>Membership expiry<input name="expiry_date" type="date"></label><label>Library<select name="library_id" id="memberLibrary" required></select></label>
+      <label class="wide">Address<textarea name="address" rows="2"></textarea></label>
+      <button type="submit">Add Member</button>
+    </form>
+    <div class="tableWrap"><table><thead><tr><th>Name</th><th>Type</th><th>ID / Roll</th><th>Library</th><th>Contact</th></tr></thead><tbody id="memberRows"></tbody></table></div>
+  </section>
+  <section id="loans" class="tab panel hidden">
+    <h2>Issue / Return Books</h2>
+    <form id="loanForm" class="formGrid">
+      <label>Member<select name="member_id" id="loanMember" required></select></label>
+      <label>Available physical copy<select name="copy_id" id="loanCopy" required></select></label>
+      <label>Issue date<input name="issue_date" type="date" required></label>
+      <label>Due date<input name="due_date" type="date" required></label>
+      <button type="submit">Issue Book</button>
+    </form>
+    <div class="tableWrap"><table><thead><tr><th>Member</th><th>Book / Copy ID</th><th>Issue date</th><th>Due date</th><th>Status</th><th>Action</th></tr></thead><tbody id="loanRows"></tbody></table></div>
+    <p class="muted small">Late fine rules must be confirmed and configured by the administrator before real operation. Your requirements document lists late fine, damaged fine (50%), and lost fine (full price + Rs.100).</p>
+  </section>
+  <div id="message" role="status"></div>
+</section>
+</main>
+<footer>Dr A Q Khan School &amp; College · Library Management System</footer>
+<script src="app.js"></script>
+</body></html>
