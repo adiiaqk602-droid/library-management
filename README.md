@@ -63,3 +63,4 @@ Open http://localhost:3000. Sign in at `/login`. Use `/admin` or one of the libr
 
 ## What's not implemented yet
 This starter demonstrates authentication, role isolation, route guards and the initial database. It does not yet include complete issue/return workflows, fines, barcode printing, SMS/WhatsApp, PDFs/OPAC, RFID, attendance, purchases, audit screens, or full bilingual UI. Add these as separate tested modules before using it operationally.
+
