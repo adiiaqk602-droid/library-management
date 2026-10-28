@@ -76,3 +76,4 @@ Sign in as Super Admin → **Librarian Accounts** → create a separate account 
 - This version provides the core records and workflows. Advanced receipts, RFID/barcode scanner integration, automated cloud backup schedules, student self-service login, e-book storage, SMS/WhatsApp/email notifications, and bulk import/export are not included yet.
 - The five initial library names are `Library 1` through `Library 5`; a later admin-facing library naming screen can replace these placeholders with the actual library names.
 - The browser does not hold database credentials. All database operations go through Cloudflare Pages Functions and D1.
+- Deployment refresh
