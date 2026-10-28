@@ -131,14 +131,13 @@ async function handle(request,env){
   return fail('Method not allowed.',405);
 }
 export async function onRequest(context){try{return await handle(context.request,context.env);}catch(e){return json({error:'Server error. Check D1 migration and Cloudflare function logs.'},500);}}
-
 export async function onRequest(context) {
   try {
     return await handle(context.request, context.env);
   } catch (e) {
-    console.error("AQK API ERROR:", e);
+    console.error("AQK API ERROR:", e?.stack || e);
     return json({
-      error: 'Server error. Check D1 migration and Cloudflare function logs.'
+      error: String(e?.message || e || "Unknown error")
     }, 500);
   }
 }
