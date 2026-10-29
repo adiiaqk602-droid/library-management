@@ -31,6 +31,119 @@ function scopeSql(user,alias=''){if(isAdmin(user))return {sql:'',binds:[]};retur
 function assertLibrary(user, libraryId){return isAdmin(user) ? Number(libraryId)>0 : Number(libraryId)===Number(user.library_id);}
 async function audit(env,user,action,entity,id,details=''){try{await env.DB.prepare('INSERT INTO audit_log(user_id,action,entity,entity_id,details) VALUES(?,?,?,?,?)').bind(user?.id||null,action,entity,String(id??''),String(details).slice(0,1000)).run();}catch{}}
 async function bodyJson(request){try{return await request.json();}catch{return null;}}
+
+async function b2Authorize(env) {
+  if (!env.B2_KEY_ID || !env.B2_APPLICATION_KEY || !env.B2_BUCKET_NAME) {
+    throw new Error("Backblaze configuration is missing.");
+  }
+
+  const credentials = btoa(
+    `${env.B2_KEY_ID}:${env.B2_APPLICATION_KEY}`
+  );
+
+  const response = await fetch(
+    "https://api.backblazeb2.com/b2api/v2/b2_authorize_account",
+    { headers: { Authorization: `Basic ${credentials}` } }
+  );
+
+  if (!response.ok) {
+    throw new Error("Backblaze authorization failed.");
+  }
+
+  const auth = await response.json();
+  let bucketId = auth.allowed?.bucketId;
+
+  if (!bucketId) {
+    const bucketsResponse = await fetch(
+      `${auth.apiUrl}/b2api/v2/b2_list_buckets`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: auth.authorizationToken,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          accountId: auth.accountId,
+          bucketName: env.B2_BUCKET_NAME
+        })
+      }
+    );
+
+    if (!bucketsResponse.ok) {
+      throw new Error("Could not find the Backblaze bucket.");
+    }
+
+    const bucketsData = await bucketsResponse.json();
+    bucketId = bucketsData.buckets?.find(
+      b => b.bucketName === env.B2_BUCKET_NAME
+    )?.bucketId;
+  }
+
+  if (!bucketId) throw new Error("Backblaze bucket not found.");
+
+  return { ...auth, bucketId };
+}
+
+async function b2UploadPdf(env, fileKey, bytes) {
+  const auth = await b2Authorize(env);
+
+  const uploadResponse = await fetch(
+    `${auth.apiUrl}/b2api/v2/b2_get_upload_url`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: auth.authorizationToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ bucketId: auth.bucketId })
+    }
+  );
+
+  if (!uploadResponse.ok) {
+    throw new Error("Could not prepare PDF upload.");
+  }
+
+  const upload = await uploadResponse.json();
+  const digest = await crypto.subtle.digest("SHA-1", bytes);
+  const sha1 = Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const result = await fetch(upload.uploadUrl, {
+    method: "POST",
+    headers: {
+      Authorization: upload.authorizationToken,
+      "X-Bz-File-Name": fileKey
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/"),
+      "Content-Type": "application/pdf",
+      "X-Bz-Content-Sha1": sha1
+    },
+    body: bytes
+  });
+
+  if (!result.ok) throw new Error("PDF upload failed.");
+  return await result.json();
+}
+
+async function b2ReadPdf(env, fileKey) {
+  const auth = await b2Authorize(env);
+  const filePath = fileKey
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+
+  return await fetch(
+    `${auth.downloadUrl}/file/${encodeURIComponent(
+      env.B2_BUCKET_NAME
+    )}/${filePath}`,
+    {
+      headers: { Authorization: auth.authorizationToken }
+    }
+  );
+}
+
 async function handle(request,env){
   if(!env.DB) return fail('Cloudflare D1 binding DB is missing. Add the D1 database binding in Cloudflare Pages settings.',503);
   const url=new URL(request.url), path=url.pathname.replace(/^\/api\/?/,''), method=request.method.toUpperCase();
@@ -57,6 +170,164 @@ async function handle(request,env){
   }
   if(path==='logout'&&method==='POST'){const token=cookieValue(request,COOKIE);if(token)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(token)).run();return json({ok:true},200,{'set-cookie':cookie('',0)});}
   const user=await getUser(request,env);if(!user)return fail('Please sign in.',401);
+  
+  // List E-Books visible to the signed-in user
+  if (path === "ebooks" && method === "GET") {
+    const rows = await env.DB.prepare(`
+      SELECT e.id, e.title, e.author, e.description,
+             e.category_id, e.library_id, e.file_size,
+             e.original_filename, e.created_at,
+             c.name AS category_name, l.name AS library_name
+      FROM ebooks e
+      LEFT JOIN categories c ON c.id = e.category_id
+      JOIN libraries l ON l.id = e.library_id
+      WHERE e.active = 1
+      ${isAdmin(user) ? "" : "AND e.library_id = ?"}
+      ORDER BY e.created_at DESC
+      LIMIT 500
+    `).bind(...(isAdmin(user) ? [] : [user.library_id])).all();
+
+    return json({ data: rows.results || [] });
+  }
+
+  // Upload a PDF to the private Backblaze bucket
+  if (path === "ebooks" && method === "POST") {
+    if (!isAdmin(user)) {
+      return fail("Only Super Admin can upload E-Books.", 403);
+    }
+
+    const form = await request.formData();
+    const file = form.get("file");
+    const title = String(form.get("title") || "").trim();
+    const author = String(form.get("author") || "").trim();
+    const description = String(form.get("description") || "").trim();
+    const libraryId = Number(form.get("library_id"));
+    const categoryValue = String(form.get("category_id") || "").trim();
+    const categoryId = categoryValue ? Number(categoryValue) : null;
+
+    if (!title || !libraryId || !(file instanceof File)) {
+      return fail("Title, library and PDF file are required.");
+    }
+
+    if (!assertLibrary(user, libraryId)) {
+      return fail("You cannot upload to another library.", 403);
+    }
+
+    if (
+      file.size < 5 ||
+      file.size > 25 * 1024 * 1024 ||
+      file.type !== "application/pdf"
+    ) {
+      return fail("Choose a PDF file no larger than 25 MB.");
+    }
+
+    if (categoryId !== null) {
+      const category = await env.DB.prepare(
+        "SELECT id FROM categories WHERE id = ?"
+      ).bind(categoryId).first();
+
+      if (!category) return fail("Category not found.");
+    }
+
+    const library = await env.DB.prepare(
+      "SELECT id FROM libraries WHERE id = ?"
+    ).bind(libraryId).first();
+
+    if (!library) return fail("Library not found.");
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+
+    if (
+      new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-"
+    ) {
+      return fail("The selected file is not a valid PDF.");
+    }
+
+    const fileKey =
+      `ebooks/${libraryId}/${crypto.randomUUID()}.pdf`;
+
+    let uploaded;
+    try {
+      uploaded = await b2UploadPdf(env, fileKey, bytes);
+    } catch {
+      return fail(
+        "PDF storage failed. Check Backblaze bucket permissions and Cloudflare Secrets.",
+        502
+      );
+    }
+
+    try {
+      const result = await env.DB.prepare(`
+        INSERT INTO ebooks
+          (title, author, description, category_id, library_id,
+           file_key, original_filename, mime_type, file_size,
+           active, uploaded_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'application/pdf',  ?, 1, ?)
+      `).bind(
+        title,
+        author || null,
+        description || null,
+        categoryId,
+        libraryId,
+        fileKey,
+        file.name.slice(0, 255),
+        file.size,
+        user.id
+      ).run();
+
+      await audit(
+        env, user, "create", "ebooks",
+        result.meta.last_row_id, title
+      );
+
+      return json({ ok: true, id: result.meta.last_row_id }, 201);
+    } catch {
+      // The PDF may already be in storage; do not expose storage details.
+      return fail(
+        "PDF uploaded but database save failed. Contact the administrator.",
+        500
+      );
+    }
+  }
+
+  // Stream a private PDF only after checking library access
+  const ebookFileMatch = path.match(/^ebooks\/(\d+)\/file$/);
+
+  if (ebookFileMatch && method === "GET") {
+    const ebook = await env.DB.prepare(`
+      SELECT id, library_id, file_key
+      FROM ebooks
+      WHERE id = ? AND active = 1
+    `).bind(Number(ebookFileMatch[1])).first();
+
+    if (!ebook) return fail("E-Book not found.", 404);
+
+    if (!assertLibrary(user, ebook.library_id)) {
+      return fail("You cannot read this library's E-Books.", 403);
+    }
+
+    let response;
+    try {
+      response = await b2ReadPdf(env, ebook.file_key);
+    } catch {
+      return fail("Could not access PDF storage.", 502);
+    }
+
+    if (!response.ok) {
+      return fail("Could not retrieve PDF.", 502);
+    }
+
+    return new Response(response.body, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff"
+      }
+    });
+  }
+
   if(path==='me'&&method==='GET')return json({user});
   if(path==='users'&&method==='GET'){
     if(!isAdmin(user))return fail('Only Super Admin can manage user accounts.',403);
