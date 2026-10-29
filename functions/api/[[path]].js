@@ -130,8 +130,6 @@ async function handle(request,env){
   if(method==='DELETE'&&id){const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))return fail('You cannot delete records outside your assigned library.',403);await env.DB.prepare(`DELETE FROM ${table} WHERE id=?`).bind(id).run();await audit(env,user,'delete',table,id,'');return json({ok:true});}
   return fail('Method not allowed.',405);
 }
-export async function onRequest(context){try{return await handle(context.request,context.env);}catch(e){return json({error:'Server error. Check D1 migration and Cloudflare function logs.'},500);}}
-
 export async function onRequest(context) {
   try {
     return await handle(context.request, context.env);
