@@ -2,7 +2,7 @@
   const API = (window.AQK_CONFIG?.API_BASE || '/api').replace(/\/$/, '');
   const $ = id => document.getElementById(id);
   const safe = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const state = {user:null,libraries:[],categories:[],wings:[],racks:[],books:[],members:[],copies:[],loans:[],users:[],settings:{}};
+const state = {user:null,libraries:[],categories:[],wings:[],racks:[],books:[],ebooks:[],members:[],copies:[],loans:[],users:[],settings:{}};
   async function api(path, options={}) {
     const res = await fetch(`${API}/${path}`, {credentials:'same-origin',headers:{'content-type':'application/json',...(options.headers||{})},...options});
     let data={};try{data=await res.json();}catch{}
@@ -20,6 +20,9 @@
     const libs=scopedLibraries();['bookLibrary','memberLibrary','categoryLibrary','wingLibrary','rackLibrary','userLibrary'].forEach(id=>setOptions(id, id==='userLibrary'?state.libraries:libs,l=>l.name));
     ['bookLibrary','memberLibrary','categoryLibrary','wingLibrary','rackLibrary'].forEach(lockLibrarySelect);if(!isAdmin())hide('userLibrary');
     setOptions('bookCategory',state.categories,c=>`${c.name} (${c.code})`,'No category');setOptions('bookWing',state.wings,w=>w.name,'No wing');setOptions('bookRack',state.racks,r=>r.name,'No rack');setOptions('rackWing',state.wings,w=>w.name,'No wing');
+setOptions('ebookLibrary',libs,l=>l.name,'Choose library');
+lockLibrarySelect('ebookLibrary');
+setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No category');
     setOptions('loanMember',state.members,m=>`${m.full_name} · ${m.member_no}`,'Choose member');
     const available=state.copies.filter(c=>c.status==='available'&&state.members.some(m=>Number(m.library_id)===Number(c.library_id)));
     $('loanCopy').innerHTML='<option value="">Choose available copy</option>'+available.map(c=>`<option value="${safe(c.id)}">${safe(c.title)} · ${safe(c.copy_code)} · ${safe(c.library_name)}</option>`).join('');
@@ -75,6 +78,116 @@
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
   window.printAQKLabels=id=>{const b=state.books.find(x=>Number(x.id)===Number(id));const copies=state.copies.filter(c=>Number(c.book_id)===Number(id));const w=window.open('','_blank');if(!w){message('Allow pop-ups to print labels.');return;}w.document.write(`<!doctype html><html><head><title>AQK Book Labels</title><style>body{font:12px Arial;margin:10mm}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6mm}.label{border:1px solid #222;padding:8px;min-height:25mm;break-inside:avoid}.code{font: bold 15px monospace}</style></head><body><h2>${safe(b?.title)}</h2><div class="grid">${copies.map(c=>`<div class="label"><b>Dr A Q Khan School & College</b><p>${safe(b?.title)}</p><div class="code">${safe(c.copy_code)}</div><p>${safe(c.library_name||'')}</p></div>`).join('')}</div><script>window.print()<\/script></body></html>`);w.document.close();};
+  
+  // AQK E-Books module
+  async function loadEbooks() {
+    const rows = $('ebookRows');
+    try {
+      const result = await api('ebooks');
+      state.ebooks = result.data || [];
+      const q = ($('ebookSearch').value || '').trim().toLowerCase();
+      const filtered = state.ebooks.filter(b =>
+        `${b.title || ''} ${b.author || ''}`.toLowerCase().includes(q)
+      );
+
+      rows.innerHTML = filtered.map(b => {
+        const lib = state.libraries.find(l => Number(l.id) === Number(b.library_id));
+        return `<tr>
+          <td><b>${safe(b.title)}</b></td>
+          <td>${safe(b.author || '—')}</td>
+          <td>${safe(b.library_name || lib?.name || '—')}</td>
+          <td>${(Number(b.file_size || 0) / 1048576).toFixed(2)} MB</td>
+          <td><button type="button" class="actionBtn"
+            data-open-ebook="${Number(b.id)}">Read PDF</button></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="5">No E-Books found.</td></tr>';
+
+      $('ebookMessage').textContent = '';
+    } catch (err) {
+      rows.innerHTML = '<tr><td colspan="5">Could not load E-Books.</td></tr>';
+      $('ebookMessage').textContent = err.message;
+    }
+  }
+
+  if ($('ebookForm')) {
+    if (!isAdmin()) hide('ebookUploadPanel');
+
+    $('ebookForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const file = form.elements.file.files[0];
+
+      if (!file) {
+        $('ebookMessage').textContent = 'Please select a PDF file.';
+        return;
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        $('ebookMessage').textContent = 'PDF must be 25 MB or smaller.';
+        return;
+      }
+      if (file.type && file.type !== 'application/pdf') {
+        $('ebookMessage').textContent = 'Please select a PDF file only.';
+        return;
+      }
+
+      const payload = new FormData(form);
+      $('ebookMessage').textContent = 'Uploading PDF…';
+
+      try {
+        const response = await fetch(`${API}/ebooks`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: payload
+        });
+        let result = {};
+        try { result = await response.json(); } catch {}
+        if (!response.ok) {
+          throw new Error(result.error || `Upload failed (${response.status})`);
+        }
+
+        form.reset();
+        $('ebookMessage').textContent = 'PDF uploaded successfully.';
+        await loadEbooks();
+      } catch (err) {
+        $('ebookMessage').textContent = err.message;
+      }
+    });
+
+    $('refreshEbooks').addEventListener('click', loadEbooks);
+    $('ebookSearch').addEventListener('input', () => {
+      const q = $('ebookSearch').value.trim().toLowerCase();
+      const filtered = state.ebooks.filter(b =>
+        `${b.title || ''} ${b.author || ''}`.toLowerCase().includes(q)
+      );
+      $('ebookRows').innerHTML = filtered.map(b => {
+        const lib = state.libraries.find(l => Number(l.id) === Number(b.library_id));
+        return `<tr>
+          <td><b>${safe(b.title)}</b></td>
+          <td>${safe(b.author || '—')}</td>
+          <td>${safe(b.library_name || lib?.name || '—')}</td>
+          <td>${(Number(b.file_size || 0) / 1048576).toFixed(2)} MB</td>
+          <td><button type="button" class="actionBtn"
+            data-open-ebook="${Number(b.id)}">Read PDF</button></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="5">No E-Books found.</td></tr>';
+    });
+
+    $('ebookRows').addEventListener('click', e => {
+      const btn = e.target.closest('[data-open-ebook]');
+      if (!btn) return;
+      const book = state.ebooks.find(b => Number(b.id) === Number(btn.dataset.openEbook));
+      if (!book) return;
+
+      $('ebookReaderTitle').textContent = book.title || 'PDF Reader';
+      $('ebookPdfFrame').src = `${API}/ebooks/${Number(book.id)}/file`;
+      show('ebookReader');
+    });
+
+    $('closeEbookReader').addEventListener('click', () => {
+      $('ebookPdfFrame').src = 'about:blank';
+      hide('ebookReader');
+    });
+  }
   $('bookForm').elements.entry_date.value=new Date().toISOString().slice(0,10);
   $('loanForm').elements.issue_date.value=new Date().toISOString().slice(0,10);
   $('loanForm').elements.due_date.value=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
