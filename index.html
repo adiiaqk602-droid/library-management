@@ -17,7 +17,155 @@
 <nav class="tabs" id="tabs"><button data-tab="dashboard" class="active">Dashboard</button><button data-tab="books">New Books</button><button data-tab="ebooks">E-Books</button><button data-tab="categories">Categories</button><button data-tab="libraries">Libraries &amp; Wings</button><button data-tab="members">Students / Membership</button><button data-tab="inventory">Inventory / Racks</button><button data-tab="loans">Issue / Return / Fine</button><button data-tab="reports">Reports</button><button data-tab="users" data-admin-only="1">Librarian Accounts</button></nav>
 <section id="dashboard" class="tab panel"><h2>Dashboard</h2><div id="stats" class="stats"></div><h3>Library-wise overview</h3><div id="libraryCards" class="libraryGrid"></div><p id="statusText" class="muted small">Connecting…</p></section>
 <section id="books" class="tab panel hidden"><div class="sectionHead"><div><h2>New Books Entry</h2><p class="muted">Each physical book gets a unique tag/copy ID.</p></div><button class="secondary" data-refresh="books">Refresh</button></div>
-<form id="bookForm" class="formGrid"><label>Serial No<input name="ser_no"></label><label>Entry date<input name="entry_date" type="date" required></label><label>Book title *<input name="title" required></label><label>Author<input name="author"></label><label>Price (Rs.)<input name="price" type="number" min="0" step="0.01" value="0"></label><label>Vendor / Publisher<input name="vendor"></label><label>Pages<input name="pages" type="number" min="0"></label><label>Edition<input name="edition"></label><label>Category<select name="category_id" id="bookCategory"><option value="">Choose category</option></select></label><label>Library<select name="library_id" id="bookLibrary" required></select></label><label>Management Wing<select name="wing_id" id="bookWing"><option value="">Choose wing</option></select></label><label>Rack / Shelf<select name="rack_id" id="bookRack"><option value="">Choose rack</option></select></label><label>Tag ID<input name="tag_id"></label><label>Condition<select name="condition"><option>New</option><option>Old</option><option>Good</option><option>Damaged</option><option>Repair</option><option>Binding needed</option><option>Lost</option></select></label><label>Stock type<select name="stock_type"><option>New</option><option>Old</option><option>Donate</option><option>General</option></select></label><label>Number of copies<input name="copy_count" type="number" min="1" max="500" value="1" required></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><button type="submit">Save Book &amp; Generate IDs</button></form>
+
+<form id="bookForm" class="formGrid">
+
+  <label>Serial No (Automatic)
+    <input name="ser_no" readonly placeholder="Auto generated">
+  </label>
+
+  <label>Accession Number
+    <input name="accession_no">
+  </label>
+
+  <label>Entry Date
+    <input name="entry_date" type="date" required>
+  </label>
+
+  <label>Book Title *
+    <input name="title" required>
+  </label>
+
+  <label>Author Name
+    <input name="author">
+  </label>
+
+  <label>Co-Author Name
+    <input name="co_author">
+  </label>
+
+  <label>ISBN
+    <input name="isbn">
+  </label>
+
+  <label>Edition
+    <input name="edition">
+  </label>
+
+  <label>Volume Number
+    <input name="volume_number">
+  </label>
+
+  <label>Publisher
+    <input name="publisher">
+  </label>
+
+  <label>Publication Year
+    <input name="publication_year" type="number" min="1000" max="2100">
+  </label>
+
+  <label>Number of Pages
+    <input name="pages" type="number" min="0">
+  </label>
+
+  <label>Language
+    <input name="language">
+  </label>
+
+  <label>Category
+    <select name="category_id" id="bookCategory">
+      <option value="">Choose category</option>
+    </select>
+  </label>
+
+  <label>Subcategory
+    <input name="subcategory">
+  </label>
+
+  <label>Library
+    <select name="library_id" id="bookLibrary" required></select>
+  </label>
+
+  <label>Management Wing
+    <select name="wing_id" id="bookWing">
+      <option value="">Choose wing</option>
+    </select>
+  </label>
+
+  <label>Department / Class
+    <input name="department_class">
+  </label>
+
+  <label>Rack Number
+    <select name="rack_id" id="bookRack">
+      <option value="">Choose rack</option>
+    </select>
+  </label>
+
+  <label>Shelf Number
+    <input name="shelf_number">
+  </label>
+
+  <label>Unique Tag ID
+    <input name="tag_id">
+  </label>
+
+  <label>Vendor / Supplier
+    <input name="vendor">
+  </label>
+
+  <label>Purchase Date
+    <input name="purchase_date" type="date">
+  </label>
+
+  <label>Invoice Number
+    <input name="invoice_number">
+  </label>
+
+  <label>Purchase Price (Rs.)
+    <input name="price" type="number" min="0" step="0.01" value="0">
+  </label>
+
+  <label>Discount (Rs.)
+    <input name="discount" type="number" min="0" step="0.01" value="0">
+  </label>
+
+  <label>Total Quantity / Copies
+    <input name="copy_count" type="number" min="1" max="500" value="1" required>
+  </label>
+
+  <label>Book Condition
+    <select name="condition">
+      <option>New</option>
+      <option>Old</option>
+      <option>Good</option>
+      <option>Damaged</option>
+      <option>Repair</option>
+      <option>Binding needed</option>
+      <option>Lost</option>
+    </select>
+  </label>
+
+  <label>Stock Type
+    <select name="stock_type">
+      <option>New</option>
+      <option>Old</option>
+      <option>Donate</option>
+      <option>General</option>
+    </select>
+  </label>
+
+  <label class="wide">Donor Information
+    <textarea name="donor_information" rows="2"></textarea>
+  </label>
+
+  <label class="wide">Book Description
+    <textarea name="description" rows="3"></textarea>
+  </label>
+
+  <button type="submit">Save Book &amp; Generate IDs</button>
+
+</form>
 <div class="tableWrap"><table><thead><tr><th>Serial / Title</th><th>Author</th><th>Library</th><th>Category</th><th>Copies</th><th>Available</th><th>Issued</th><th>Action</th></tr></thead><tbody id="bookRows"></tbody></table></div></section>
 <section id="categories" class="tab panel hidden"><h2>Category Management</h2><form id="categoryForm" class="formGrid"><label>Category name *<input name="name" required placeholder="Islamic Books, Science, Maths"></label><label>Category code<input name="code" placeholder="Auto-generated if blank"></label><label>Library<select name="library_id" id="categoryLibrary"></select></label><label class="wide">Description<textarea name="description" rows="2" placeholder="Which books belong in this category?"></textarea></label><button type="submit">Add Category</button></form><div class="tableWrap"><table><thead><tr><th>Name</th><th>Code</th><th>Library</th><th>Description</th><th>Actions</th></tr></thead><tbody id="categoryRows"></tbody></table></div></section>
 <section id="libraries" class="tab panel hidden"><h2>Management Wings &amp; Libraries</h2><h3>Libraries</h3><div id="libraryTable" class="tableWrap"></div><h3>Add Management Wing</h3><form id="wingForm" class="formGrid"><label>Wing name *<input name="name" required></label><label>Library<select name="library_id" id="wingLibrary" required></select></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><button type="submit">Add Wing</button></form><div class="tableWrap"><table><thead><tr><th>Wing</th><th>Library</th><th>Description</th></tr></thead><tbody id="wingRows"></tbody></table></div></section>
