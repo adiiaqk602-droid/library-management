@@ -4,8 +4,7 @@ const TABLES = {
   categories: { fields: ["name","code","description","library_id"], scoped: true },
   wings: { fields: ["name","library_id","description"], scoped: true },
   racks: { fields: ["name","code","library_id","wing_id","description"], scoped: true },
-  books: { fields: ["ser_no","entry_date","title","author","price","vendor","pages","edition","category_id","library_id","wing_id","rack_id","tag_id","description"], scoped: true },
-  members: { fields: ["member_no","full_name","member_type","college_id","class_department","father_name","contact","email","expiry_date","library_id","address","active"], scoped: true }
+books: { fields: ["ser_no","accession_no","entry_date","title","author","co_author","isbn","price","vendor","pages","edition","volume_number","publisher","publication_year","language","category_id","subcategory","library_id","wing_id","department_class","rack_id","shelf_number","tag_id","description","purchase_date","invoice_number","discount","donor_information","cover_image"], scoped: true },  members: { fields: ["member_no","full_name","member_type","college_id","class_department","father_name","contact","email","expiry_date","library_id","address","active"], scoped: true }
 };
 const json = (data, status=200, extra={}) => new Response(JSON.stringify(data), { status, headers: {"content-type":"application/json; charset=utf-8", "cache-control":"no-store", ...extra} });
 const fail = (message, status=400) => json({error:message}, status);
@@ -134,7 +133,9 @@ if (path === 'book-history' && method === 'GET') {
   ).all();
 
   return json({ data: rows.results || [] });
-}const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
+}
+
+const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
   if(method==='GET'){
     const sc=scopeSql(user);let sql=`SELECT * FROM ${table} WHERE 1=1${sc.sql}`;const binds=[...sc.binds];if(url.searchParams.get('q')){const q=`%${url.searchParams.get('q').slice(0,100)}%`;const field=table==='books'?'title':table==='members'?'full_name':'name';sql+=` AND ${field} LIKE ?`;binds.push(q);}sql+=' ORDER BY id DESC LIMIT 1000';const rows=await env.DB.prepare(sql).bind(...binds).all();return json({data:rows.results||[]});
   }
@@ -165,7 +166,6 @@ if (path === 'book-history' && method === 'GET') {
     return fail('You cannot move records to another library.',403);
 
   const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));
-
   if(!keys.length)return fail('No editable fields provided.');
 
   const vals=keys.map(k=>d[k]===''?null:d[k]);
@@ -175,10 +175,8 @@ if (path === 'book-history' && method === 'GET') {
       `UPDATE ${table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=?`
     ).bind(...vals,id).run();
 
-    // Save book update history
     if(table==='books'){
       const newValues={...current};
-
       keys.forEach((key,index)=>{
         newValues[key]=vals[index];
       });
@@ -204,9 +202,29 @@ if (path === 'book-history' && method === 'GET') {
     console.error('UPDATE ERROR:',e);
     return fail('Could not update record.',409);
   }
-}{const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))return fail('You cannot delete records outside your assigned library.',403);await env.DB.prepare(`DELETE FROM ${table} WHERE id=?`).bind(id).run();await audit(env,user,'delete',table,id,'');return json({ok:true});}
-  return fail('Method not allowed.',405);
 }
+
+if(method==='DELETE'&&id){
+  const current=await env.DB.prepare(
+    `SELECT * FROM ${table} WHERE id=?`
+  ).bind(id).first();
+
+  if(!current)return fail('Record not found.',404);
+
+  if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))
+    return fail('You cannot delete records outside your assigned library.',403);
+
+  await env.DB.prepare(
+    `DELETE FROM ${table} WHERE id=?`
+  ).bind(id).run();
+
+    await audit(env,user,'delete',table,id,'');
+  return json({ok:true});
+}
+
+return fail('Method not allowed.',405);
+}
+
 export async function onRequest(context) {
   try {
     return await handle(context.request, context.env);
