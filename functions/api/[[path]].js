@@ -148,8 +148,63 @@ if (path === 'book-history' && method === 'GET') {
       await audit(env,user,'create',table,newId,'');return json({ok:true,id:newId,row},201);
     }catch(e){return fail('Could not save record. Check required fields and unique codes.',409);}
   }
-  if(method==='PATCH'&&id){const d=await bodyJson(request);if(!d)return fail('Invalid request.');const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&Number(current.library_id)!==Number(user.library_id))return fail('Forbidden.',403);if(!isAdmin(user)&&Object.prototype.hasOwnProperty.call(d,'library_id')&&Number(d.library_id)!==Number(user.library_id))return fail('You cannot move records to another library.',403);const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));if(!keys.length)return fail('No editable fields provided.');const vals=keys.map(k=>d[k]===''?null:d[k]);try{await env.DB.prepare(`UPDATE ${table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=?`).bind(...vals,id).run();await audit(env,user,'update',table,id,'');return json({ok:true});}catch{return fail('Could not update record.',409);}}
-  if(method==='DELETE'&&id){const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))return fail('You cannot delete records outside your assigned library.',403);await env.DB.prepare(`DELETE FROM ${table} WHERE id=?`).bind(id).run();await audit(env,user,'delete',table,id,'');return json({ok:true});}
+  if(method==='PATCH'&&id){
+  const d=await bodyJson(request);
+  if(!d)return fail('Invalid request.');
+
+  const current=await env.DB.prepare(
+    `SELECT * FROM ${table} WHERE id=?`
+  ).bind(id).first();
+
+  if(!current)return fail('Record not found.',404);
+
+  if(!isAdmin(user)&&Number(current.library_id)!==Number(user.library_id))
+    return fail('Forbidden.',403);
+
+  if(!isAdmin(user)&&Object.prototype.hasOwnProperty.call(d,'library_id')&&Number(d.library_id)!==Number(user.library_id))
+    return fail('You cannot move records to another library.',403);
+
+  const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));
+
+  if(!keys.length)return fail('No editable fields provided.');
+
+  const vals=keys.map(k=>d[k]===''?null:d[k]);
+
+  try{
+    await env.DB.prepare(
+      `UPDATE ${table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=?`
+    ).bind(...vals,id).run();
+
+    // Save book update history
+    if(table==='books'){
+      const newValues={...current};
+
+      keys.forEach((key,index)=>{
+        newValues[key]=vals[index];
+      });
+
+      await env.DB.prepare(`
+        INSERT INTO book_history
+        (book_id,library_id,user_id,action,old_values,new_values)
+        VALUES(?,?,?,?,?,?)
+      `).bind(
+        Number(id),
+        current.library_id,
+        user.id,
+        'update',
+        JSON.stringify(current),
+        JSON.stringify(newValues)
+      ).run();
+    }
+
+    await audit(env,user,'update',table,id,'');
+    return json({ok:true});
+
+  }catch(e){
+    console.error('UPDATE ERROR:',e);
+    return fail('Could not update record.',409);
+  }
+}{const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))return fail('You cannot delete records outside your assigned library.',403);await env.DB.prepare(`DELETE FROM ${table} WHERE id=?`).bind(id).run();await audit(env,user,'delete',table,id,'');return json({ok:true});}
   return fail('Method not allowed.',405);
 }
 export async function onRequest(context) {
