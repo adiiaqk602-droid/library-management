@@ -18,7 +18,6 @@ ALTER TABLE books ADD COLUMN discount REAL NOT NULL DEFAULT 0;
 ALTER TABLE books ADD COLUMN donor_information TEXT;
 ALTER TABLE books ADD COLUMN cover_image TEXT;
 
--- Book history
 CREATE TABLE IF NOT EXISTS book_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   book_id INTEGER REFERENCES books(id) ON DELETE SET NULL,
@@ -30,14 +29,7 @@ CREATE TABLE IF NOT EXISTS book_history (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_book_history_book
-ON book_history(book_id);
-
-CREATE INDEX IF NOT EXISTS idx_book_history_library
-ON book_history(library_id);
-
-CREATE INDEX IF NOT EXISTS idx_books_accession
-ON books(accession_no);
-
-CREATE INDEX IF NOT EXISTS idx_books_isbn
-ON books(isbn);
+CREATE INDEX IF NOT EXISTS idx_book_history_book ON book_history(book_id);
+CREATE INDEX IF NOT EXISTS idx_book_history_library ON book_history(library_id);
+CREATE INDEX IF NOT EXISTS idx_books_accession ON books(accession_no);
+CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn);
