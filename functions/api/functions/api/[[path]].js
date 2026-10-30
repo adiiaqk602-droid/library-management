@@ -190,11 +190,10 @@ async function handle(request,env){
     return json({ data: rows.results || [] });
   }
 
-  // Upload a PDF to the private Backblaze bucket
+   // Upload a PDF to the private Backblaze bucket
   if (path === "ebooks" && method === "POST") {
-      if (isAdmin(user)) {
+    if (isAdmin(user)) {
       return fail("Super Admin can view E-Books but cannot upload.", 403);
-  }
     }
 
     const form = await request.formData();
@@ -214,11 +213,7 @@ async function handle(request,env){
       return fail("You cannot upload to another library.", 403);
     }
 
-    if (
-      file.size < 5 ||
-      file.size > 25 * 1024 * 1024 ||
-      file.type !== "application/pdf"
-    ) {
+    if (file.size < 5 || file.size > 25 * 1024 * 1024 || file.type !== "application/pdf") {
       return fail("Choose a PDF file no larger than 25 MB.");
     }
 
@@ -238,23 +233,16 @@ async function handle(request,env){
 
     const bytes = new Uint8Array(await file.arrayBuffer());
 
-    if (
-      new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-"
-    ) {
+    if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") {
       return fail("The selected file is not a valid PDF.");
     }
 
-    const fileKey =
-      `ebooks/${libraryId}/${crypto.randomUUID()}.pdf`;
+    const fileKey = `ebooks/${libraryId}/${crypto.randomUUID()}.pdf`;
 
-    let uploaded;
     try {
-      uploaded = await b2UploadPdf(env, fileKey, bytes);
+      await b2UploadPdf(env, fileKey, bytes);
     } catch {
-      return fail(
-        "PDF storage failed. Check Backblaze bucket permissions and Cloudflare Secrets.",
-        502
-      );
+      return fail("PDF storage failed. Check Backblaze bucket permissions and Cloudflare Secrets.", 502);
     }
 
     try {
@@ -263,7 +251,7 @@ async function handle(request,env){
           (title, author, description, category_id, library_id,
            file_key, original_filename, mime_type, file_size,
            active, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'application/pdf',  ?, 1, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'application/pdf', ?, 1, ?)
       `).bind(
         title,
         author || null,
@@ -276,12 +264,13 @@ async function handle(request,env){
         user.id
       ).run();
 
-      await audit(
-        env, user, "create", "ebooks",
-        result.meta.last_row_id, title
-      );
+      await audit(env, user, "create", "ebooks", result.meta.last_row_id, title);
 
       return json({ ok: true, id: result.meta.last_row_id }, 201);
+    } catch {
+      return fail("PDF uploaded but database save failed. Contact the administrator.", 500);
+    }
+  }
     } catch {
       // The PDF may already be in storage; do not expose storage details.
       return fail(
