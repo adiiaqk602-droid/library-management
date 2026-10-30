@@ -112,7 +112,29 @@ async function handle(request,env){
   if(path==='libraries'&&method==='PATCH'){
     if(!isAdmin(user))return fail('Only Super Admin can rename libraries.',403);const d=await bodyJson(request);if(!d||!Number(d.id)||!String(d.name||'').trim())return fail('Library ID and name are required.');try{await env.DB.prepare('UPDATE libraries SET name=?,code=? WHERE id=?').bind(String(d.name).trim(),String(d.code||'').trim()||`LIB-${String(d.id).padStart(2,'0')}`,Number(d.id)).run();await audit(env,user,'update','libraries',d.id,'');return json({ok:true});}catch{return fail('Could not update library name/code. The name or code may already exist.',409);}
   }
-  const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
+  // Book History - list records visible to the signed-in user
+if (path === 'book-history' && method === 'GET') {
+  const rows = await env.DB.prepare(`
+    SELECT
+      h.*,
+      b.title,
+      b.ser_no,
+      l.name AS library_name,
+      u.full_name
+    FROM book_history h
+    LEFT JOIN books b ON b.id = h.book_id
+    JOIN libraries l ON l.id = h.library_id
+    LEFT JOIN users u ON u.id = h.user_id
+    WHERE 1=1
+    ${isAdmin(user) ? '' : 'AND h.library_id = ?'}
+    ORDER BY h.created_at DESC
+    LIMIT 500
+  `).bind(
+    ...(isAdmin(user) ? [] : [user.library_id])
+  ).all();
+
+  return json({ data: rows.results || [] });
+}const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
   if(method==='GET'){
     const sc=scopeSql(user);let sql=`SELECT * FROM ${table} WHERE 1=1${sc.sql}`;const binds=[...sc.binds];if(url.searchParams.get('q')){const q=`%${url.searchParams.get('q').slice(0,100)}%`;const field=table==='books'?'title':table==='members'?'full_name':'name';sql+=` AND ${field} LIKE ?`;binds.push(q);}sql+=' ORDER BY id DESC LIMIT 1000';const rows=await env.DB.prepare(sql).bind(...binds).all();return json({data:rows.results||[]});
   }
