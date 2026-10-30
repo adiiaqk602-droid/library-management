@@ -3,9 +3,9 @@ const SESSION_DAYS = 7;
 
 const TABLES = {
   categories: {
-    fields: ["name","code","description","library_id"],
-    scoped: true
-  },
+  fields: ["name","code","description","library_id","parent_id"],
+  scoped: true
+},
   wings: {
     fields: ["name","library_id","description"],
     scoped: true
@@ -478,7 +478,29 @@ async function handle(request,env){
   if(method==='POST'){
     const d=await bodyJson(request);if(!d)return fail('Invalid request.');const row={};for(const f of meta.fields)if(Object.prototype.hasOwnProperty.call(d,f))row[f]=d[f]=== ''?null:d[f];
     if(!isAdmin(user)){if(!meta.scoped)return fail('Forbidden.',403);row.library_id=user.library_id;if(d.library_id&&Number(d.library_id)!==Number(user.library_id))return fail('You cannot add records to another library.',403);}
-    if(['books','members','wings','racks'].includes(table)&&!row.library_id)return fail('Library is required.');if(table==='categories'&&!row.name)return fail('Category name is required.');if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
+    if(['books','members','wings','racks'].includes(table)&&!row.library_id)return fail('Library is required.');if(table==='categories'&&!row.name)return fail('Category name is required.');if (table === 'categories') {
+  row.name = String(row.name || '').trim();
+
+  if (!row.name) {
+    return fail('Category name is required.');
+  }
+
+  row.parent_id = row.parent_id ? Number(row.parent_id) : null;
+
+  if (row.parent_id !== null) {
+    if (!Number.isInteger(row.parent_id) || row.parent_id <= 0) {
+      return fail('Invalid parent category.');
+    }
+
+    const parent = await env.DB.prepare(
+      'SELECT id FROM categories WHERE id = ? AND library_id IS ?'
+    ).bind(row.parent_id, row.library_id ?? null).first();
+
+    if (!parent) {
+      return fail('Parent category not found in this library.');
+    }
+  }
+}if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
     if(table==='books'&&!row.title)return fail('Book title is required.');
 if (table === 'books') {
   if (!row.title || !String(row.title).trim()) {
@@ -554,7 +576,39 @@ if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().
     if(!isAdmin(user)&&Object.prototype.hasOwnProperty.call(d,'library_id')&&Number(d.library_id)!==Number(user.library_id))
       return fail('You cannot move records to another library.',403);
 
-    const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));
+    if (table === 'categories' && Object.prototype.hasOwnProperty.call(d, 'parent_id')) {
+  const parentId = d.parent_id ? Number(d.parent_id) : null;
+
+  if (parentId !== null) {
+    if (!Number.isInteger(parentId) || parentId <= 0 || parentId === id) {
+      return fail('Invalid parent category.');
+    }
+
+    const parent = await env.DB.prepare(
+      'SELECT id FROM categories WHERE id = ? AND library_id IS ?'
+    ).bind(parentId, current.library_id ?? null).first();
+
+    if (!parent) {
+      return fail('Parent category not found in this library.');
+    }
+
+    const cycle = await env.DB.prepare(`
+      WITH RECURSIVE descendants(id) AS (
+        SELECT id FROM categories WHERE parent_id = ?
+        UNION ALL
+        SELECT c.id FROM categories c
+        JOIN descendants d ON c.parent_id = d.id
+      )
+      SELECT id FROM descendants WHERE id = ? LIMIT 1
+    `).bind(id, parentId).first();
+
+    if (cycle) {
+      return fail('A category cannot be its own parent or descendant.');
+    }
+  }
+
+  d.parent_id = parentId;
+}const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));
     if(!keys.length)return fail('No editable fields provided.');
 
     const vals=keys.map(k=>d[k]===''?null:d[k]);
@@ -590,7 +644,31 @@ if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().
     if(!current)return fail('Record not found.',404);
 
     if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))
-      return fail('You cannot delete records outside your assigned library.',403);
+      return fail('You cannot delete records outside your assigned library.',403);if (table === 'categories') {
+  const child = await env.DB.prepare(
+    'SELECT id FROM categories WHERE parent_id = ? LIMIT 1'
+  ).bind(id).first();
+
+  if (child) {
+    return fail('Cannot delete this category. It has subcategories.', 409);
+  }
+
+  const used = await env.DB.prepare(
+    'SELECT id FROM books WHERE category_id = ? LIMIT 1'
+  ).bind(id).first();
+
+  if (used) {
+    return fail('Cannot delete this category. Books are linked to it.', 409);
+  }
+
+  const ebookUsed = await env.DB.prepare(
+    'SELECT id FROM ebooks WHERE category_id = ? LIMIT 1'
+  ).bind(id).first();
+
+  if (ebookUsed) {
+    return fail('Cannot delete this category. E-Books are linked to it.', 409);
+  }
+}
 
     try {
       if(table==='books'){
