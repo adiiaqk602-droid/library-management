@@ -1,12 +1,62 @@
 const COOKIE = "aqk_session";
 const SESSION_DAYS = 7;
+
 const TABLES = {
-  categories: { fields: ["name","code","description","library_id"], scoped: true },
-  wings: { fields: ["name","library_id","description"], scoped: true },
-  racks: { fields: ["name","code","library_id","wing_id","description"], scoped: true },
-  books: { fields: ["ser_no","entry_date","title","author","price","vendor","pages","edition","category_id","library_id","wing_id","rack_id","tag_id","description"], scoped: true },
-  members: { fields: ["member_no","full_name","member_type","college_id","class_department","father_name","contact","email","expiry_date","library_id","address","active"], scoped: true }
+  categories: {
+    fields: ["name","code","description","library_id"],
+    scoped: true
+  },
+  wings: {
+    fields: ["name","library_id","description"],
+    scoped: true
+  },
+  racks: {
+    fields: ["name","code","library_id","wing_id","description"],
+    scoped: true
+  },
+  books: {
+    fields: [
+      "ser_no",
+      "accession_no",
+      "entry_date",
+      "title",
+      "author",
+      "co_author",
+      "isbn",
+      "edition",
+      "volume_number",
+      "publisher",
+      "publication_year",
+      "pages",
+      "language",
+      "description",
+      "cover_image",
+      "category_id",
+      "subcategory",
+      "library_id",
+      "wing_id",
+      "department_class",
+      "rack_id",
+      "shelf_number",
+      "tag_id",
+      "vendor",
+      "purchase_date",
+      "invoice_number",
+      "price",
+      "discount"
+    ],
+    scoped: true
+  },
+  members: {
+    fields: [
+      "member_no","full_name","member_type","college_id",
+      "class_department","father_name","contact","email",
+      "expiry_date","library_id","address","active"
+    ],
+    scoped: true
+  }
 };
+
 const json = (data, status=200, extra={}) => new Response(JSON.stringify(data), { status, headers: {"content-type":"application/json; charset=utf-8", "cache-control":"no-store", ...extra} });
 const fail = (message, status=400) => json({error:message}, status);
 const safeEqual = (a,b) => { if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false; let n=0; for(let i=0;i<a.length;i++) n |= a.charCodeAt(i)^b.charCodeAt(i); return n===0; };
@@ -312,7 +362,7 @@ async function handle(request,env){
 
   if(path==='me'&&method==='GET')return json({user});
    if(path==='users'&&method==='GET'){
-    const rows=await env.DB.prepare('SELECT id,email,full_name,role,library_id,active,created_at FROM users ORDER BY full_name').all();
+    if(!isAdmin(user))return fail('Only Super Admin can view user accounts.',403);const rows=await env.DB.prepare('SELECT id,email,full_name,role,library_id,active,created_at FROM users ORDER BY full_name').all();
     return json({data:rows.results||[]});
   }
   if(path==='users'&&method==='POST'){
@@ -373,7 +423,46 @@ async function handle(request,env){
     const d=await bodyJson(request);if(!d)return fail('Invalid request.');const row={};for(const f of meta.fields)if(Object.prototype.hasOwnProperty.call(d,f))row[f]=d[f]=== ''?null:d[f];
     if(!isAdmin(user)){if(!meta.scoped)return fail('Forbidden.',403);row.library_id=user.library_id;if(d.library_id&&Number(d.library_id)!==Number(user.library_id))return fail('You cannot add records to another library.',403);}
     if(['books','members','wings','racks'].includes(table)&&!row.library_id)return fail('Library is required.');if(table==='categories'&&!row.name)return fail('Category name is required.');if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
-    if(table==='books'&&!row.title)return fail('Book title is required.');if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().slice(-8)}`;row.member_type=row.member_type||'Student';}
+    if(table==='books'&&!row.title)return fail('Book title is required.');
+if (table === 'books') {
+  if (!row.title || !String(row.title).trim()) {
+    return fail('Book title is required.');
+  }
+
+  const libraryId = Number(row.library_id);
+  const stamp = Date.now();
+
+  // Automatic Serial Number
+  if (!row.ser_no) {
+    row.ser_no = `AQK-${libraryId}-${stamp}`;
+  }
+
+  // Automatic Accession Number
+  if (!row.accession_no) {
+    row.accession_no = `ACC-${libraryId}-${stamp}`;
+  }
+
+  // Automatic Tag ID
+  if (!row.tag_id) {
+    row.tag_id = `TAG-${libraryId}-${stamp}`;
+  }
+
+  // Duplicate ISBN check
+  for (const field of ['isbn', 'accession_no', 'tag_id']) {
+    if (row[field]) {
+      const duplicate = await env.DB.prepare(
+        `SELECT id FROM books
+         WHERE library_id = ? AND ${field} = ?
+         LIMIT 1`
+      ).bind(libraryId, row[field]).first();
+
+      if (duplicate) {
+        return fail(`This ${field} already exists in this library.`, 409);
+      }
+    }
+  }
+}
+if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().slice(-8)}`;row.member_type=row.member_type||'Student';}
     const keys=Object.keys(row);if(!keys.length)return fail('No valid fields provided.');const placeholders=keys.map(()=>'?').join(',');try{const result=await env.DB.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`).bind(...keys.map(k=>row[k])).run();const newId=result.meta.last_row_id;
       if(table==='books'){const count=Math.max(1,Math.min(500,Number(d.copy_count)||1));const prefix=`${String(row.tag_id||row.ser_no||'AQK').replace(/[^A-Za-z0-9-]/g,'').slice(0,24)}-${newId}`;const condition=d.condition||'New';const copyStatus=condition==='Lost'?'lost':condition==='Damaged'?'damaged':condition==='Repair'?'repair':'available';const statements=[];for(let i=1;i<=count;i++)statements.push(env.DB.prepare('INSERT INTO book_copies(book_id,copy_code,status,condition,stock_type) VALUES(?,?,?,?,?)').bind(newId,`${prefix}-C${String(i).padStart(3,'0')}`,copyStatus,condition,d.stock_type||'New'));await env.DB.batch(statements);}
       await audit(env,user,'create',table,newId,'');return json({ok:true,id:newId,row},201);
