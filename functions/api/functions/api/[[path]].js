@@ -271,15 +271,7 @@ async function handle(request,env){
       return fail("PDF uploaded but database save failed. Contact the administrator.", 500);
     }
   }
-    } catch {
-      // The PDF may already be in storage; do not expose storage details.
-      return fail(
-        "PDF uploaded but database save failed. Contact the administrator.",
-        500
-      );
-    }
-  }
-
+  
   // Stream a private PDF only after checking library access
   const ebookFileMatch = path.match(/^ebooks\/(\d+)\/file$/);
 
@@ -319,11 +311,9 @@ async function handle(request,env){
   }
 
   if(path==='me'&&method==='GET')return json({user});
-  if(path==='users'&&method==='GET'){
-    if (isAdmin(user)) {
-  return fail("Super Admin can view E-Books but cannot upload.", 403);
-}
-    const rows=await env.DB.prepare('SELECT id,email,full_name,role,library_id,active,created_at FROM users ORDER BY full_name').all();return json({data:rows.results||[]});
+   if(path==='users'&&method==='GET'){
+    const rows=await env.DB.prepare('SELECT id,email,full_name,role,library_id,active,created_at FROM users ORDER BY full_name').all();
+    return json({data:rows.results||[]});
   }
   if(path==='users'&&method==='POST'){
     if(!isAdmin(user))return fail('Only Super Admin can create librarian accounts.',403);const d=await bodyJson(request);if(!d)return fail('Invalid request.');
