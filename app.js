@@ -110,7 +110,7 @@ setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No categ
   }
 
   if ($('ebookForm')) {
-    if (!isAdmin()) hide('ebookUploadPanel');
+    if (isAdmin()) hide('ebookUploadPanel');
 
     $('ebookForm').addEventListener('submit', async e => {
       e.preventDefault();
