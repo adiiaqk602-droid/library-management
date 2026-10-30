@@ -16,9 +16,31 @@ const state = {user:null,libraries:[],categories:[],wings:[],racks:[],books:[],e
   const scopedLibraries = () => isAdmin() ? state.libraries : state.libraries.filter(l=>Number(l.id)===Number(state.user?.library_id));
   function setOptions(id, rows, label, placeholder='Choose') { const el=$(id);if(!el)return;const old=el.value;el.innerHTML=`<option value="">${safe(placeholder)}</option>`+rows.map(r=>`<option value="${safe(r.id)}">${safe(label(r))}</option>`).join('');if(rows.some(r=>String(r.id)===old))el.value=old; }
   function lockLibrarySelect(id){const el=$(id);if(!el)return;if(!isAdmin())el.value=String(state.user.library_id);}
-  function fillSelects(){
+  
+function fillCategoryParents() {
+  const libraryId = $('categoryLibrary').value || '';
+
+  const rows = state.categories.filter(
+    c => String(c.library_id ?? '') === libraryId
+  );
+
+  setOptions(
+    'categoryParent',
+    rows,
+    c => `${c.name} (${c.code})`,
+    'Main Category (No Parent)'
+  );
+}
+function fillSelects(){
     const libs=scopedLibraries();['bookLibrary','memberLibrary','categoryLibrary','wingLibrary','rackLibrary','userLibrary'].forEach(id=>setOptions(id, id==='userLibrary'?state.libraries:libs,l=>l.name));
     ['bookLibrary','memberLibrary','categoryLibrary','wingLibrary','rackLibrary'].forEach(lockLibrarySelect);if(!isAdmin())hide('userLibrary');
+  fillCategoryParents();setOptions(
+  'categoryLibraryFilter',
+  scopedLibraries(),
+  l => l.name,
+  'All Libraries'
+);
+$('categoryLibrary').onchange = fillCategoryParents;
     setOptions('bookCategory',state.categories,c=>`${c.name} (${c.code})`,'No category');setOptions('bookWing',state.wings,w=>w.name,'No wing');setOptions('bookRack',state.racks,r=>r.name,'No rack');setOptions('rackWing',state.wings,w=>w.name,'No wing');
 setOptions('ebookLibrary',libs,l=>l.name,'Choose library');
 lockLibrarySelect('ebookLibrary');
@@ -27,12 +49,40 @@ setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No categ
     const available=state.copies.filter(c=>c.status==='available'&&state.members.some(m=>Number(m.library_id)===Number(c.library_id)));
     $('loanCopy').innerHTML='<option value="">Choose available copy</option>'+available.map(c=>`<option value="${safe(c.id)}">${safe(c.title)} · ${safe(c.copy_code)} · ${safe(c.library_name)}</option>`).join('');
   }
-  function render(){
+  function renderCategorySearch() {
+  const search = ($('categorySearch')?.value || '').trim().toLowerCase();
+  const library = $('categoryLibraryFilter')?.value || '';
+
+  const filtered = state.categories.filter(c => {
+    const text = `${c.name || ''} ${c.code || ''} ${c.description || ''}`.toLowerCase();
+
+    const matchesSearch = text.includes(search);
+    const matchesLibrary = !library ||
+      String(c.library_id ?? '') === library;
+
+    return matchesSearch && matchesLibrary;
+  });
+
+  $('categoryRows').innerHTML = filtered.map(c => `
+    <tr>
+      <td>${safe(c.name)}</td>
+      <td>${safe(c.code)}</td>
+      <td>${safe(state.categories.find(p => Number(p.id) === Number(c.parent_id))?.name || 'Main Category')}</td>
+      <td>${safe(state.libraries.find(l => l.id == c.library_id)?.name || 'All libraries')}</td>
+      <td>${safe(c.description || '')}</td>
+      <td>
+        <button class="actionBtn" onclick="window.editAQKCategory(${Number(c.id)})">Edit</button>
+        <button class="actionBtn danger" onclick="window.deleteAQKRecord('categories',${Number(c.id)})">Delete</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="6">No categories found.</td></tr>';
+}function render(){
     fillSelects();
     $('libraryCards').innerHTML=state.libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code)}${l.id==state.user.library_id&&!isAdmin()?' · Your assigned library':''}</p></div>`).join('');
     $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
     $('bookRows').innerHTML=state.books.map(b=>{const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));return `<tr><td>${safe(b.ser_no||'—')}<br><b>${safe(b.title)}</b><div class="muted small">Tag: ${safe(b.tag_id||'—')}</div></td><td>${safe(b.author||'—')}</td><td>${safe(state.libraries.find(l=>l.id==b.library_id)?.name||'')}</td><td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td><td>${cp.length}</td><td>${cp.filter(c=>c.status==='available').length}</td><td>${cp.filter(c=>c.status==='issued').length}</td><td><button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button> <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button></td></tr>`}).join('')||'<tr><td colspan="8">No books entered yet.</td></tr>';
-    $('categoryRows').innerHTML=state.categories.map(c=>`<tr><td>${safe(c.name)}</td><td>${safe(c.code)}</td><td>${safe(state.libraries.find(l=>l.id==c.library_id)?.name||'All libraries')}</td><td>${safe(c.description||'')}</td><td><button class="actionBtn" onclick="window.editAQKCategory(${Number(c.id)})">Edit</button> <button class="actionBtn danger" onclick="window.deleteAQKRecord('categories',${Number(c.id)})">Delete</button></td></tr>`).join('')||'<tr><td colspan="5">No categories yet.</td></tr>';
+
+    renderCategorySearch();`<tr><td>${safe(c.name)}</td><td>${safe(c.code)}</td><td>${safe(state.categories.find(p=>Number(p.id)===Number(c.parent_id))?.name||'Main Category')}</td><td>${safe(state.libraries.find(l=>l.id==c.library_id)?.name||'All libraries')}</td><td>${safe(c.description||'')}</td><td><button class="actionBtn" onclick="window.editAQKCategory(${Number(c.id)})">Edit</button> <button class="actionBtn danger" onclick="window.deleteAQKRecord('categories',${Number(c.id)})">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No categories yet.</td></tr>';
     $('wingRows').innerHTML=state.wings.map(w=>`<tr><td>${safe(w.name)}</td><td>${safe(state.libraries.find(l=>l.id==w.library_id)?.name||'')}</td><td>${safe(w.description||'')}</td></tr>`).join('')||'<tr><td colspan="3">No wings yet.</td></tr>';
     $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
     $('memberRows').innerHTML=state.members.map(m=>`<tr><td>${safe(m.member_no)}</td><td>${safe(m.full_name)}</td><td>${safe(m.member_type)}</td><td>${safe(m.college_id||'')}</td><td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td><td>${safe(m.contact||m.email||'')}</td></tr>`).join('')||'<tr><td colspan="6">No members yet.</td></tr>';
@@ -61,7 +111,8 @@ setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No categ
   $('loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const result=await api('login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});state.user=result.user;message('Signed in.',true);await refresh();}catch(err){message(err.message,true);}});
   $('logoutBtn').addEventListener('click',async()=>{try{await api('logout',{method:'POST',body:'{}'});}finally{state.user=null;hide('appPanel');show('loginPanel');$('password').value='';}});
   $('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab));});
-  document.querySelectorAll('[data-refresh]').forEach(b=>b.addEventListener('click',()=>refresh().catch(e=>message(e.message))));
+  $('categorySearch')?.addEventListener('input', renderCategorySearch);
+$('categoryLibraryFilter')?.addEventListener('change', renderCategorySearch);document.querySelectorAll('[data-refresh]').forEach(b=>b.addEventListener('click',()=>refresh().catch(e=>message(e.message))));
   function formPayload(form){const d=Object.fromEntries(new FormData(form));for(const k of Object.keys(d))if(d[k]==='')d[k]=null;return d;}
   async function submitForm(id,endpoint,success,transform){$(id).addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;let data=formPayload(form);if(transform)data=transform(data);try{await api(endpoint,{method:'POST',body:JSON.stringify(data)});form.reset();message(success);await refresh();}catch(err){message(err.message);}});}
   submitForm('bookForm','books','Book saved and physical copy IDs generated.',d=>({...d,price:Number(d.price||0),pages:d.pages?Number(d.pages):null,copy_count:Number(d.copy_count||1)}));
@@ -73,8 +124,61 @@ setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No categ
   $('printReports').addEventListener('click',()=>window.print());
   window.editAQKLibrary=async id=>{const l=state.libraries.find(x=>Number(x.id)===Number(id));if(!l||!isAdmin())return;const name=prompt('Library name:',l.name);if(name===null)return;const code=prompt('Library code:',l.code);if(code===null)return;try{await api('libraries',{method:'PATCH',body:JSON.stringify({id,name:name.trim(),code:code.trim()})});message('Library name updated.');await refresh();}catch(e){message(e.message);}};
   window.editAQKBook=async id=>{const b=state.books.find(x=>Number(x.id)===Number(id));if(!b)return;const title=prompt('Book title:',b.title);if(title===null)return;const author=prompt('Author:',b.author||'');if(author===null)return;const price=prompt('Price in Rs.:',b.price||0);if(price===null)return;const vendor=prompt('Vendor / Publisher:',b.vendor||'');if(vendor===null)return;const edition=prompt('Edition:',b.edition||'');if(edition===null)return;const tag_id=prompt('Tag ID:',b.tag_id||'');if(tag_id===null)return;try{await api(`books/${id}`,{method:'PATCH',body:JSON.stringify({title:title.trim(),author:author||null,price:Number(price)||0,vendor:vendor||null,edition:edition||null,tag_id:tag_id||null})});message('Book record updated.');await refresh();}catch(e){message(e.message);}};
-  window.editAQKCategory=async id=>{const c=state.categories.find(x=>Number(x.id)===Number(id));if(!c)return;const name=prompt('Category name:',c.name);if(name===null)return;const description=prompt('Description:',c.description||'');if(description===null)return;const code=prompt('Category code:',c.code);if(code===null)return;try{await api(`categories/${id}`,{method:'PATCH',body:JSON.stringify({name:name.trim(),description,code:code.trim()})});message('Category updated.');await refresh();}catch(e){message(e.message);}};
-  window.deleteAQKRecord=async(table,id)=>{if(!confirm('Delete this category? This cannot be undone.'))return;try{await api(`${table}/${id}`,{method:'DELETE'});message('Record deleted.');await refresh();}catch(e){message(e.message);}};
+window.editAQKCategory=async id=>{
+  const c=state.categories.find(x=>Number(x.id)===Number(id));
+  if(!c)return;
+
+  const name=prompt('Category name:',c.name);
+  if(name===null)return;
+
+  const description=prompt('Description:',c.description||'');
+  if(description===null)return;
+
+  const code=prompt('Category code:',c.code);
+  if(code===null)return;
+
+  const possibleParents=state.categories.filter(x=>
+    Number(x.library_id??0)===Number(c.library_id??0)&&
+    Number(x.id)!==Number(c.id)
+  );
+
+  const parentChoices=[
+    '0 = Main Category (No Parent)',
+    ...possibleParents.map(x=>`${x.id} = ${x.name}`)
+  ].join('\n');
+
+  const parentInput=prompt(
+    `Parent Category ID:\n${parentChoices}`,
+    c.parent_id||'0'
+  );
+
+  if(parentInput===null)return;
+
+  const parent_id=parentInput.trim()===''||parentInput.trim()==='0'
+    ?null:Number(parentInput);
+
+  if(parent_id!==null&&!possibleParents.some(x=>Number(x.id)===parent_id)){
+    message('Invalid parent category ID.');
+    return;
+  }
+
+  try{
+    await api(`categories/${id}`,{
+      method:'PATCH',
+      body:JSON.stringify({
+        name:name.trim(),
+        description,
+        code:code.trim(),
+        parent_id
+      })
+    });
+
+    message('Category updated.');
+    await refresh();
+  }catch(e){
+    message(e.message);
+  }
+};  window.deleteAQKRecord=async(table,id)=>{if(!confirm('Delete this category? This cannot be undone.'))return;try{await api(`${table}/${id}`,{method:'DELETE'});message('Record deleted.');await refresh();}catch(e){message(e.message);}};
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
   window.printAQKLabels=id=>{const b=state.books.find(x=>Number(x.id)===Number(id));const copies=state.copies.filter(c=>Number(c.book_id)===Number(id));const w=window.open('','_blank');if(!w){message('Allow pop-ups to print labels.');return;}w.document.write(`<!doctype html><html><head><title>AQK Book Labels</title><style>body{font:12px Arial;margin:10mm}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6mm}.label{border:1px solid #222;padding:8px;min-height:25mm;break-inside:avoid}.code{font: bold 15px monospace}</style></head><body><h2>${safe(b?.title)}</h2><div class="grid">${copies.map(c=>`<div class="label"><b>Dr A Q Khan School & College</b><p>${safe(b?.title)}</p><div class="code">${safe(c.copy_code)}</div><p>${safe(c.library_name||'')}</p></div>`).join('')}</div><script>window.print()<\/script></body></html>`);w.document.close();};
