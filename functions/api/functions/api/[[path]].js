@@ -79,9 +79,43 @@ async function getUser(request,env){const token=cookieValue(request,COOKIE);if(!
 function isAdmin(user){return user.role==='super_admin';}
 function scopeSql(user,alias=''){if(isAdmin(user))return {sql:'',binds:[]};return {sql:` AND ${alias?alias+'.':''}library_id=?`,binds:[user.library_id]};}
 function assertLibrary(user, libraryId){return isAdmin(user) ? Number(libraryId)>0 : Number(libraryId)===Number(user.library_id);}
-async function audit(env,user,action,entity,id,details=''){try{await env.DB.prepare('INSERT INTO audit_log(user_id,action,entity,entity_id,details) VALUES(?,?,?,?,?)').bind(user?.id||null,action,entity,String(id??''),String(details).slice(0,1000)).run();}catch{}}
-async function bodyJson(request){try{return await request.json();}catch{return null;}}
 
+async function audit(env,user,action,entity,id,details=''){
+  try {
+    await env.DB.prepare(
+      'INSERT INTO audit_log(user_id,action,entity,entity_id,details) VALUES(?,?,?,?,?)'
+    ).bind(
+      user?.id || null,
+      action,
+      entity,
+      String(id ?? ''),
+      String(details).slice(0,1000)
+    ).run();
+  } catch {}
+}
+
+async function recordBookHistory(env, user, book, action, oldValues, newValues) {
+  await env.DB.prepare(`
+    INSERT INTO book_history
+      (book_id, library_id, user_id, action, old_values, new_values)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(
+    book?.id ?? null,
+    Number(book.library_id),
+    user?.id ?? null,
+    action,
+    oldValues ? JSON.stringify(oldValues) : null,
+    newValues ? JSON.stringify(newValues) : null
+  ).run();
+}
+
+async function bodyJson(request){
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
+}
 async function b2Authorize(env) {
   if (!env.B2_KEY_ID || !env.B2_APPLICATION_KEY || !env.B2_BUCKET_NAME) {
     throw new Error("Backblaze configuration is missing.");
@@ -415,7 +449,29 @@ async function handle(request,env){
   if(path==='libraries'&&method==='PATCH'){
     if(!isAdmin(user))return fail('Only Super Admin can rename libraries.',403);const d=await bodyJson(request);if(!d||!Number(d.id)||!String(d.name||'').trim())return fail('Library ID and name are required.');try{await env.DB.prepare('UPDATE libraries SET name=?,code=? WHERE id=?').bind(String(d.name).trim(),String(d.code||'').trim()||`LIB-${String(d.id).padStart(2,'0')}`,Number(d.id)).run();await audit(env,user,'update','libraries',d.id,'');return json({ok:true});}catch{return fail('Could not update library name/code. The name or code may already exist.',409);}
   }
-  const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
+    // Book History - list records visible to the signed-in user
+  if (path === 'book-history' && method === 'GET') {
+    const rows = await env.DB.prepare(`
+      SELECT
+        h.*,
+        b.title,
+        b.ser_no,
+        l.name AS library_name,
+        u.full_name
+      FROM book_history h
+      LEFT JOIN books b ON b.id = h.book_id
+      JOIN libraries l ON l.id = h.library_id
+      LEFT JOIN users u ON u.id = h.user_id
+      WHERE 1=1
+      ${isAdmin(user) ? '' : 'AND h.library_id = ?'}
+      ORDER BY h.created_at DESC
+      LIMIT 500
+    `).bind(
+      ...(isAdmin(user) ? [] : [user.library_id])
+    ).all();
+
+    return json({ data: rows.results || [] });
+  }const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
   if(method==='GET'){
     const sc=scopeSql(user);let sql=`SELECT * FROM ${table} WHERE 1=1${sc.sql}`;const binds=[...sc.binds];if(url.searchParams.get('q')){const q=`%${url.searchParams.get('q').slice(0,100)}%`;const field=table==='books'?'title':table==='members'?'full_name':'name';sql+=` AND ${field} LIKE ?`;binds.push(q);}sql+=' ORDER BY id DESC LIMIT 1000';const rows=await env.DB.prepare(sql).bind(...binds).all();return json({data:rows.results||[]});
   }
@@ -464,12 +520,105 @@ if (table === 'books') {
 }
 if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().slice(-8)}`;row.member_type=row.member_type||'Student';}
     const keys=Object.keys(row);if(!keys.length)return fail('No valid fields provided.');const placeholders=keys.map(()=>'?').join(',');try{const result=await env.DB.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`).bind(...keys.map(k=>row[k])).run();const newId=result.meta.last_row_id;
-      if(table==='books'){const count=Math.max(1,Math.min(500,Number(d.copy_count)||1));const prefix=`${String(row.tag_id||row.ser_no||'AQK').replace(/[^A-Za-z0-9-]/g,'').slice(0,24)}-${newId}`;const condition=d.condition||'New';const copyStatus=condition==='Lost'?'lost':condition==='Damaged'?'damaged':condition==='Repair'?'repair':'available';const statements=[];for(let i=1;i<=count;i++)statements.push(env.DB.prepare('INSERT INTO book_copies(book_id,copy_code,status,condition,stock_type) VALUES(?,?,?,?,?)').bind(newId,`${prefix}-C${String(i).padStart(3,'0')}`,copyStatus,condition,d.stock_type||'New'));await env.DB.batch(statements);}
+      if (table === 'books') {
+  const savedBook = await env.DB.prepare(
+    'SELECT * FROM books WHERE id = ?'
+  ).bind(newId).first();
+
+  await recordBookHistory(
+    env,
+    user,
+    savedBook,
+    'create',
+    null,
+    savedBook
+  );
+}if(table==='books'){const count=Math.max(1,Math.min(500,Number(d.copy_count)||1));const prefix=`${String(row.tag_id||row.ser_no||'AQK').replace(/[^A-Za-z0-9-]/g,'').slice(0,24)}-${newId}`;const condition=d.condition||'New';const copyStatus=condition==='Lost'?'lost':condition==='Damaged'?'damaged':condition==='Repair'?'repair':'available';const statements=[];for(let i=1;i<=count;i++)statements.push(env.DB.prepare('INSERT INTO book_copies(book_id,copy_code,status,condition,stock_type) VALUES(?,?,?,?,?)').bind(newId,`${prefix}-C${String(i).padStart(3,'0')}`,copyStatus,condition,d.stock_type||'New'));await env.DB.batch(statements);}
       await audit(env,user,'create',table,newId,'');return json({ok:true,id:newId,row},201);
     }catch(e){return fail('Could not save record. Check required fields and unique codes.',409);}
   }
-  if(method==='PATCH'&&id){const d=await bodyJson(request);if(!d)return fail('Invalid request.');const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&Number(current.library_id)!==Number(user.library_id))return fail('Forbidden.',403);if(!isAdmin(user)&&Object.prototype.hasOwnProperty.call(d,'library_id')&&Number(d.library_id)!==Number(user.library_id))return fail('You cannot move records to another library.',403);const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));if(!keys.length)return fail('No editable fields provided.');const vals=keys.map(k=>d[k]===''?null:d[k]);try{await env.DB.prepare(`UPDATE ${table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=?`).bind(...vals,id).run();await audit(env,user,'update',table,id,'');return json({ok:true});}catch{return fail('Could not update record.',409);}}
-  if(method==='DELETE'&&id){const current=await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(id).first();if(!current)return fail('Record not found.',404);if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))return fail('You cannot delete records outside your assigned library.',403);await env.DB.prepare(`DELETE FROM ${table} WHERE id=?`).bind(id).run();await audit(env,user,'delete',table,id,'');return json({ok:true});}
+  
+  if(method==='PATCH'&&id){
+    const d=await bodyJson(request);
+    if(!d)return fail('Invalid request.');
+
+    const current=await env.DB.prepare(
+      `SELECT * FROM ${table} WHERE id=?`
+    ).bind(id).first();
+
+    if(!current)return fail('Record not found.',404);
+
+    if(!isAdmin(user)&&Number(current.library_id)!==Number(user.library_id))
+      return fail('Forbidden.',403);
+
+    if(!isAdmin(user)&&Object.prototype.hasOwnProperty.call(d,'library_id')&&Number(d.library_id)!==Number(user.library_id))
+      return fail('You cannot move records to another library.',403);
+
+    const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));
+    if(!keys.length)return fail('No editable fields provided.');
+
+    const vals=keys.map(k=>d[k]===''?null:d[k]);
+
+    try {
+      await env.DB.prepare(
+        `UPDATE ${table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=?`
+      ).bind(...vals,id).run();
+
+      if(table==='books'){
+        const updatedBook=await env.DB.prepare(
+          'SELECT * FROM books WHERE id=?'
+        ).bind(id).first();
+
+        await recordBookHistory(
+          env,user,updatedBook,'update',current,updatedBook
+        );
+      }
+
+      await audit(env,user,'update',table,id,'');
+      return json({ok:true});
+
+    } catch(e) {
+      return fail('Could not update record.',409);
+    }
+  }
+
+  if(method==='DELETE'&&id){
+    const current=await env.DB.prepare(
+      `SELECT * FROM ${table} WHERE id=?`
+    ).bind(id).first();
+
+    if(!current)return fail('Record not found.',404);
+
+    if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))
+      return fail('You cannot delete records outside your assigned library.',403);
+
+    try {
+      if(table==='books'){
+        await recordBookHistory(
+          env,user,current,'delete',current,null
+        );
+      }
+
+      await env.DB.prepare(
+        `DELETE FROM ${table} WHERE id=?`
+      ).bind(id).run();
+
+      await audit(env,user,'delete',table,id,'');
+      return json({ok:true});
+
+    } catch(e) {
+      return fail('Could not delete record.',409);
+    }
+  }
+
   return fail('Method not allowed.',405);
 }
-export async function onRequest(context){try{return await handle(context.request,context.env);}catch(e){return json({error:'Server error. Check D1 migration and Cloudflare function logs.'},500);}}
+export async function onRequest(context){
+  try{
+    return await handle(context.request,context.env);
+  }catch(e){
+    return json({
+      error:'Server error. Check D1 migration and Cloudflare function logs.'
+    },500);
+  }
+}
