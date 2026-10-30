@@ -76,15 +76,23 @@ setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No categ
       </td>
     </tr>
   `).join('') || '<tr><td colspan="6">No categories found.</td></tr>';
-}function render(){
+}
+
+function render(){
     fillSelects();
     $('libraryCards').innerHTML=state.libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code)}${l.id==state.user.library_id&&!isAdmin()?' · Your assigned library':''}</p></div>`).join('');
     $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
     $('bookRows').innerHTML=state.books.map(b=>{const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));return `<tr><td>${safe(b.ser_no||'—')}<br><b>${safe(b.title)}</b><div class="muted small">Tag: ${safe(b.tag_id||'—')}</div></td><td>${safe(b.author||'—')}</td><td>${safe(state.libraries.find(l=>l.id==b.library_id)?.name||'')}</td><td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td><td>${cp.length}</td><td>${cp.filter(c=>c.status==='available').length}</td><td>${cp.filter(c=>c.status==='issued').length}</td><td><button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button> <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button></td></tr>`}).join('')||'<tr><td colspan="8">No books entered yet.</td></tr>';
 
-    renderCategorySearch();`<tr><td>${safe(c.name)}</td><td>${safe(c.code)}</td><td>${safe(state.categories.find(p=>Number(p.id)===Number(c.parent_id))?.name||'Main Category')}</td><td>${safe(state.libraries.find(l=>l.id==c.library_id)?.name||'All libraries')}</td><td>${safe(c.description||'')}</td><td><button class="actionBtn" onclick="window.editAQKCategory(${Number(c.id)})">Edit</button> <button class="actionBtn danger" onclick="window.deleteAQKRecord('categories',${Number(c.id)})">Delete</button></td></tr>`).join('')||'<tr><td colspan="6">No categories yet.</td></tr>';
-    $('wingRows').innerHTML=state.wings.map(w=>`<tr><td>${safe(w.name)}</td><td>${safe(state.libraries.find(l=>l.id==w.library_id)?.name||'')}</td><td>${safe(w.description||'')}</td></tr>`).join('')||'<tr><td colspan="3">No wings yet.</td></tr>';
-    $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
+renderCategorySearch();
+
+$('wingRows').innerHTML = state.wings.map(w => `
+  <tr>
+    <td>${safe(w.name)}</td>
+    <td>${safe(state.libraries.find(l => l.id == w.library_id)?.name || '')}</td>
+    <td>${safe(w.description || '')}</td>
+  </tr>
+`).join('') || '<tr><td colspan="3">No wings yet.</td></tr>';    $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
     $('memberRows').innerHTML=state.members.map(m=>`<tr><td>${safe(m.member_no)}</td><td>${safe(m.full_name)}</td><td>${safe(m.member_type)}</td><td>${safe(m.college_id||'')}</td><td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td><td>${safe(m.contact||m.email||'')}</td></tr>`).join('')||'<tr><td colspan="6">No members yet.</td></tr>';
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
     $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
