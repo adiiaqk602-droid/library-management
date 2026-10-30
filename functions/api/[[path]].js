@@ -1,4 +1,4 @@
-const COOKIE = "aqk_session";
+const COOKIE = "aqk_session"; 
 const SESSION_DAYS = 7;
 const TABLES = {
   categories: { fields: ["name","code","description","library_id"], scoped: true },
