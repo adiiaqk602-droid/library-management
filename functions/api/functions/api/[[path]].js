@@ -192,8 +192,9 @@ async function handle(request,env){
 
   // Upload a PDF to the private Backblaze bucket
   if (path === "ebooks" && method === "POST") {
-    if (!isAdmin(user)) {
-      return fail("Only Super Admin can upload E-Books.", 403);
+      if (isAdmin(user)) {
+      return fail("Super Admin can view E-Books but cannot upload.", 403);
+  }
     }
 
     const form = await request.formData();
