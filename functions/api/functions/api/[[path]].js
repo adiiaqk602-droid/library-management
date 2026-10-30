@@ -330,7 +330,9 @@ async function handle(request,env){
 
   if(path==='me'&&method==='GET')return json({user});
   if(path==='users'&&method==='GET'){
-    if(!isAdmin(user))return fail('Only Super Admin can manage user accounts.',403);
+    if (isAdmin(user)) {
+  return fail("Super Admin can view E-Books but cannot upload.", 403);
+}
     const rows=await env.DB.prepare('SELECT id,email,full_name,role,library_id,active,created_at FROM users ORDER BY full_name').all();return json({data:rows.results||[]});
   }
   if(path==='users'&&method==='POST'){
