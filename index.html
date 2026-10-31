@@ -61,6 +61,10 @@
   </label>
 
   <label>Publication Year
+    <label>Academic Year
+  <input name="academic_year"
+    placeholder="مثلاً 2026-2027">
+</label>
     <input name="publication_year" type="number" min="1000" max="2100">
   </label>
 
@@ -167,17 +171,8 @@
 
 </form>
 <div class="formGrid">
-  <label>Search Category
-    <input type="search" id="categorySearch"
-      placeholder="Search by name or code...">
-  </label>
-
-  <label>Filter by Library
-    <select id="categoryLibraryFilter">
-      <option value="">All Libraries</option>
-    </select>
-  </label>
-</div><div class="tableWrap"><table><thead><tr><th>Serial / Title</th><th>Author</th><th>Library</th><th>Category</th><th>Copies</th><th>Available</th><th>Issued</th><th>Action</th></tr></thead><tbody id="bookRows"></tbody></table></div></section>
+  
+  <div class="tableWrap"><table><thead><tr><th>Serial / Title</th><th>Author</th><th>Library</th><th>Category</th><th>Copies</th><th>Available</th><th>Issued</th><th>Action</th></tr></thead><tbody id="bookRows"></tbody></table></div></section>
 <section id="categories" class="tab panel hidden">
   <h2>Category Management</h2>
 
