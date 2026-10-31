@@ -99,8 +99,105 @@ $('wingRows').innerHTML = state.wings.map(w => `
     const r=state.report||{stats:{}};const stats=r.stats||{};
     $('stats').innerHTML=[['Libraries',state.libraries.length],['Book titles',stats.books??state.books.length],['Physical copies',stats.copies??state.copies.length],['Members',stats.members??state.members.length],['Issued',stats.issued??state.loans.filter(l=>l.status==='issued').length],['Overdue',stats.overdue??0],['Outstanding fine',`Rs. ${Number(stats.outstandingFine||0).toFixed(2)}`]].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
     $('reportStats').innerHTML=$('stats').innerHTML;
-    $('categoryReportRows').innerHTML=(r.byCategory||[]).map(x=>`<tr><td>${safe(x.label)}</td><td>${safe(x.total)}</td></tr>`).join('');$('libraryReportRows').innerHTML=(r.byLibrary||[]).map(x=>`<tr><td>${safe(x.label)}</td><td>${safe(x.total)}</td></tr>`).join('');$('inventoryReportRows').innerHTML=(r.inventory||[]).map(x=>`<tr><td>${safe(x.label)}</td><td>${safe(x.status)}</td><td>${safe(x.total)}</td></tr>`).join('');
-    $('statusText').textContent=`Connected to Cloudflare D1 · Signed in as ${state.user.role.replace('_',' ')}.`;
+const reportRows = (items, makeRow, cols) =>
+  (items || []).length
+    ? items.map(makeRow).join('')
+    : `<tr><td colspan="${cols}">No record found</td></tr>`;
+
+const reportMoney = v =>
+  'Rs. ' + Number(v || 0).toLocaleString('en-PK', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+// Existing reports
+$('categoryReportRows').innerHTML = reportRows(
+  r.byCategory,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total)}</td></tr>`,
+  2
+);
+
+$('libraryReportRows').innerHTML = reportRows(
+  r.byLibrary,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total)}</td></tr>`,
+  2
+);
+
+$('inventoryReportRows').innerHTML = reportRows(
+  r.inventory,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.status)}</td><td>${safe(x.total)}</td></tr>`,
+  3
+);
+
+// 1. Category-wise Stock Value
+$('categoryValueRows').innerHTML = reportRows(
+  r.byCategoryValue,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
+  4
+);
+
+// 2. Category-wise Location
+$('categoryLocationRows').innerHTML = reportRows(
+  r.byCategoryLocation,
+  x => `<tr><td>${safe(x.category)}</td><td>${safe(x.library)}</td><td>${safe(x.wing)}</td><td>${safe(x.rack)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td></tr>`,
+  6
+);
+
+// 3. Category-wise Issue Report
+$('categoryIssueRows').innerHTML = reportRows(
+  r.byCategoryIssues,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total_issues)}</td><td>${safe(x.currently_issued)}</td><td>${safe(x.returned)}</td><td>${safe(x.overdue)}</td></tr>`,
+  5
+);
+
+// 4. Most Issued Categories
+$('mostIssuedRows').innerHTML = reportRows(
+  r.mostIssuedCategories,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total_issues)}</td></tr>`,
+  2
+);
+
+// 5. Least Issued Categories
+$('leastIssuedRows').innerHTML = reportRows(
+  r.leastIssuedCategories,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total_issues)}</td></tr>`,
+  2
+);
+
+// 6. Academic Year-wise Books
+$('academicYearRows').innerHTML = reportRows(
+  r.byAcademicYear,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td></tr>`,
+  3
+);
+
+// 7. New / Old / Donate Books
+$('stockTypeRows').innerHTML = reportRows(
+  r.byStockType,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.status)}</td><td>${safe(x.total)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
+  4
+);
+
+// 8. Library-wise Stock Value
+$('libraryValueRows').innerHTML = reportRows(
+  r.byLibraryValue,
+  x => `<tr><td>${safe(x.label)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
+  4
+);
+
+// 9. Rack-wise Book Report
+$('rackReportRows').innerHTML = reportRows(
+  r.byRack,
+  x => `<tr><td>${safe(x.library)}</td><td>${safe(x.wing)}</td><td>${safe(x.rack)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td><td>${safe(x.available)}</td><td>${safe(x.issued)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
+  8
+);
+
+// 10. Monthly Issue & Return Report
+$('monthlyRows').innerHTML = reportRows(
+  r.monthlyIssuesReturns,
+  x => `<tr><td>${safe(x.month)}</td><td>${safe(x.issued)}</td><td>${safe(x.returned)}</td></tr>`,
+  3
+);    $('statusText').textContent=`Connected to Cloudflare D1 · Signed in as ${state.user.role.replace('_',' ')}.`;
     document.querySelectorAll('[data-admin-only]').forEach(el=>el.classList.toggle('hidden',!isAdmin()));hide('setupPanel');hide('loginPanel');show('appPanel');
     if(isAdmin()){show('fineSettings');$('userRows').innerHTML=state.users.map(u=>`<tr><td>${safe(u.full_name)}</td><td>${safe(u.email)}</td><td>${safe(u.role)}</td><td>${safe(state.libraries.find(l=>l.id==u.library_id)?.name||'All libraries')}</td><td>${u.active?'Active':'Disabled'}</td><td>${u.role==='librarian'?`<button class="actionBtn" onclick="window.toggleAQKUser(${Number(u.id)},${u.active?0:1})">${u.active?'Disable':'Enable'}</button>`:''}</td></tr>`).join('');}else hide('fineSettings');
   }
