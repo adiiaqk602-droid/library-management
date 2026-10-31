@@ -349,7 +349,7 @@ bookForm.addEventListener('submit', async e => {
   submitForm('userForm','users','Librarian account created.');
   $('settingsForm').addEventListener('submit',async e=>{e.preventDefault();const d=formPayload(e.currentTarget);try{for(const [key,value] of Object.entries(d))await api('settings',{method:'POST',body:JSON.stringify({key,value:Number(value)})});message('Fine settings saved.');await refresh();}catch(err){message(err.message);}});
   $('printReports').addEventListener('click',()=>window.print());
-  window.editAQKLibrarywindow.editAQKWing = async function(id) {
+window.editAQKWing = async function(id) {
   if (!isAdmin()) {
     message('Only Super Admin can edit wings.');
     return;
@@ -360,14 +360,10 @@ bookForm.addEventListener('submit', async e => {
     message('Wing not found.');
     return;
   }
-
   const name = prompt('Enter Wing Name:', wing.name);
   if (name === null) return;
 
-  const description = prompt(
-    'Enter Description:',
-    wing.description || ''
-  );
+  const description = prompt('Enter Description:', wing.description || '');
   if (description === null) return;
 
   const currentLibrary = state.libraries.find(
@@ -404,7 +400,34 @@ bookForm.addEventListener('submit', async e => {
   } catch (err) {
     message(err.message);
   }
-};=async id=>{const l=state.libraries.find(x=>Number(x.id)===Number(id));if(!l||!isAdmin())return;const name=prompt('Library name:',l.name);if(name===null)return;const code=prompt('Library code:',l.code);if(code===null)return;try{await api('libraries',{method:'PATCH',body:JSON.stringify({id,name:name.trim(),code:code.trim()})});message('Library name updated.');await refresh();}catch(e){message(e.message);}};
+};
+
+window.editAQKLibrary = async id => {
+  const l = state.libraries.find(x => Number(x.id) === Number(id));
+  if (!l || !isAdmin()) return;
+
+  const name = prompt('Library name:', l.name);
+  if (name === null) return;
+
+  const code = prompt('Library code:', l.code);
+  if (code === null) return;
+
+  try {
+    await api('libraries', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        id,
+        name: name.trim(),
+        code: code.trim()
+      })
+    });
+
+    message('Library name updated.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
   $('libraryForm')?.addEventListener('submit', async e => {
   e.preventDefault();
 
