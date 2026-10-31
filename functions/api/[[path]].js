@@ -180,7 +180,26 @@ const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])r
   ).bind(id).first();
 
   if(!current)return fail('Record not found.',404);
+  // Prevent moving a book while any of its copies are issued
+  if(
+    table==='books' &&
+    Object.prototype.hasOwnProperty.call(d,'library_id') &&
+    Number(d.library_id)!==Number(current.library_id)
+  ){
+    const issued=await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM loans l
+      INNER JOIN book_copies bc ON bc.id=l.copy_id
+      WHERE bc.book_id=? AND l.status='issued'
+    `).bind(id).first();
 
+    if(Number(issued?.total||0)>0){
+      return fail(
+        'This book cannot be moved because one or more copies are currently issued. Please return all copies first.',
+        409
+      );
+    }
+  }
   if(!isAdmin(user)&&Number(current.library_id)!==Number(user.library_id))
     return fail('Forbidden.',403);
 
