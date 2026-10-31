@@ -286,7 +286,193 @@ window.editAQKCategory=async id=>{
 };  window.deleteAQKRecord=async(table,id)=>{if(!confirm('Delete this category? This cannot be undone.'))return;try{await api(`${table}/${id}`,{method:'DELETE'});message('Record deleted.');await refresh();}catch(e){message(e.message);}};
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
-  window.printAQKLabels=id=>{const b=state.books.find(x=>Number(x.id)===Number(id));const copies=state.copies.filter(c=>Number(c.book_id)===Number(id));const w=window.open('','_blank');if(!w){message('Allow pop-ups to print labels.');return;}w.document.write(`<!doctype html><html><head><title>AQK Book Labels</title><style>body{font:12px Arial;margin:10mm}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6mm}.label{border:1px solid #222;padding:8px;min-height:25mm;break-inside:avoid}.code{font: bold 15px monospace}</style></head><body><h2>${safe(b?.title)}</h2><div class="grid">${copies.map(c=>`<div class="label"><b>Dr A Q Khan School & College</b><p>${safe(b?.title)}</p><div class="code">${safe(c.copy_code)}</div><p>${safe(c.library_name||'')}</p></div>`).join('')}</div><script>window.print()<\/script></body></html>`);w.document.close();};
+
+window.printAQKLabels = id => {
+  const b = state.books.find(x => Number(x.id) === Number(id));
+  if (!b) {
+    message('Book record not found.');
+    return;
+  }
+
+  const copies = state.copies.filter(
+    c => Number(c.book_id) === Number(id)
+  );
+
+  const library = state.libraries.find(
+    x => Number(x.id) === Number(b.library_id)
+  );
+
+  const category = state.categories.find(
+    x => Number(x.id) === Number(b.category_id)
+  );
+
+  const wing = state.wings.find(
+    x => Number(x.id) === Number(b.wing_id)
+  );
+
+  const rack = state.racks.find(
+    x => Number(x.id) === Number(b.rack_id)
+  );
+
+  const w = window.open('', '_blank');
+
+  if (!w) {
+    message('Allow pop-ups to print labels.');
+    return;
+  }
+
+  const details = [
+    ['Serial No', b.ser_no],
+    ['Accession No', b.accession_no],
+    ['Entry Date', b.entry_date || b.date],
+    ['Book Title', b.title],
+    ['Author', b.author],
+    ['Category', category?.name],
+    ['Price', b.price != null ? 'Rs. ' + b.price : ''],
+    ['Vendor / Publisher', b.vendor],
+    ['Pages', b.pages],
+    ['Edition', b.edition],
+    ['Tag ID', b.tag_id],
+    ['Library', library?.name],
+    ['Wing', wing?.name],
+    ['Rack', rack?.name]
+  ];
+
+  const rows = details.map(([label, value]) => `
+    <tr>
+      <th>${safe(label)}</th>
+      <td>${safe(value || '—')}</td>
+    </tr>
+  `).join('');
+
+  const labels = copies.length
+    ? copies.map(c => `
+        <div class="label">
+          <h3>Dr A Q Khan School &amp; College</h3>
+          <h4>${safe(b.title)}</h4>
+          <p><b>Accession No:</b> ${safe(b.accession_no || b.ser_no || '—')}</p>
+          <div class="code">${safe(c.copy_code)}</div>
+          <p>${safe(c.library_name || library?.name || '—')}</p>
+          <p><b>Category:</b> ${safe(category?.name || '—')}</p>
+          <p><b>Rack:</b> ${safe(rack?.name || '—')}</p>
+        </div>
+      `).join('')
+    : '<p>No physical copies found for this book.</p>';
+
+  w.document.write(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>AQK Book Details & Labels</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 15mm;
+          color: #111;
+        }
+
+        h1, h2 {
+          text-align: center;
+          margin: 5px 0;
+        }
+
+        .school {
+          text-align: center;
+          font-size: 14px;
+          margin-bottom: 20px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 20px 0;
+        }
+
+        th, td {
+          border: 1px solid #333;
+          padding: 9px;
+          text-align: left;
+        }
+
+        th {
+          width: 30%;
+          background: #e8edf5;
+        }
+
+        .labelHeading {
+          margin-top: 30px;
+          border-bottom: 2px solid #222;
+          padding-bottom: 8px;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8mm;
+          margin-top: 15px;
+        }
+
+        .label {
+          border: 2px solid #222;
+          padding: 10px;
+          text-align: center;
+          break-inside: avoid;
+        }
+
+        .label h3 {
+          font-size: 13px;
+          margin: 3px;
+        }
+
+        .label h4 {
+          font-size: 15px;
+          margin: 8px 0;
+        }
+
+        .label p {
+          font-size: 11px;
+          margin: 5px;
+        }
+
+        .code {
+          font-family: monospace;
+          font-weight: bold;
+          font-size: 18px;
+          border: 1px solid #333;
+          padding: 7px;
+          margin: 8px 0;
+        }
+
+        @media print {
+          body { margin: 10mm; }
+          .label { break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Dr A Q Khan School &amp; College</h1>
+      <div class="school">AQK Library Management System</div>
+
+      <h2>Complete Book Details</h2>
+
+      <table>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <h2 class="labelHeading">AQK Book Labels</h2>
+
+      <div class="grid">${labels}</div>
+
+      <script>
+        window.onload = () => window.print();
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  w.document.close();
+};
   
   // AQK E-Books module
   async function loadEbooks() {
