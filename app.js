@@ -77,7 +77,69 @@ setOptions('ebookCategory',state.categories,c=>`${c.name} (${c.code})`,'No categ
     </tr>
   `).join('') || '<tr><td colspan="6">No categories found.</td></tr>';
 }
+function renderLibraryInventory() {
+  const libraries = scopedLibraries();
 
+  const copies = state.copies.filter(c =>
+    libraries.some(l => Number(l.id) === Number(c.library_id))
+  );
+
+  const total = copies.length;
+  const available = copies.filter(c =>
+    String(c.status).toLowerCase() === 'available'
+  ).length;
+  const issued = copies.filter(c =>
+    String(c.status).toLowerCase() === 'issued'
+  ).length;
+
+  const stockCount = type => copies.filter(c =>
+    String(c.stock_type || '').trim().toLowerCase() === type
+  ).length;
+
+  $('inventorySummaryStats').innerHTML = [
+    ['Total Copies', total],
+    ['New Books', stockCount('new')],
+    ['Old Books', stockCount('old')],
+    ['Donate Books', stockCount('donate')],
+    ['Available', available],
+    ['Issued', issued]
+  ].map(([label, count]) => `
+    <div class="stat">
+      <span class="muted">${safe(label)}</span>
+      <strong>${count}</strong>
+    </div>
+  `).join('');
+
+  $('libraryInventoryRows').innerHTML = libraries.map(library => {
+    const rows = copies.filter(c =>
+      Number(c.library_id) === Number(library.id)
+    );
+
+    const count = type => rows.filter(c =>
+      String(c.stock_type || '').trim().toLowerCase() === type
+    ).length;
+
+    const availableCount = rows.filter(c =>
+      String(c.status).toLowerCase() === 'available'
+    ).length;
+
+    const issuedCount = rows.filter(c =>
+      String(c.status).toLowerCase() === 'issued'
+    ).length;
+
+    return `
+      <tr>
+        <td>${safe(library.name)}</td>
+        <td>${rows.length}</td>
+        <td>${count('new')}</td>
+        <td>${count('old')}</td>
+        <td>${count('donate')}</td>
+        <td>${availableCount}</td>
+        <td>${issuedCount}</td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="7">No inventory found.</td></tr>';
+}
 function render(){
     fillSelects();
     $('libraryCards').innerHTML=state.libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code)}${l.id==state.user.library_id&&!isAdmin()?' · Your assigned library':''}</p></div>`).join('');
@@ -114,7 +176,9 @@ $('wingRows').innerHTML = state.wings.map(w => `
     </td>
   </tr>
 `).join('') || '<tr><td colspan="4">No wings yet.</td></tr>';
-    $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
+  renderLibraryInventory();
+  
+  $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
     $('memberRows').innerHTML=state.members.map(m=>`<tr><td>${safe(m.member_no)}</td><td>${safe(m.full_name)}</td><td>${safe(m.member_type)}</td><td>${safe(m.college_id||'')}</td><td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td><td>${safe(m.contact||m.email||'')}</td></tr>`).join('')||'<tr><td colspan="6">No members yet.</td></tr>';
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
     $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
