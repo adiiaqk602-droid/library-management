@@ -99,14 +99,22 @@ $('bookRows').innerHTML=state.books.map(b=>{
     </td>
   </tr>`;
 }).join('')||'<tr><td colspan="9">No books entered yet.</td></tr>';renderCategorySearch();
-
 $('wingRows').innerHTML = state.wings.map(w => `
   <tr>
     <td>${safe(w.name)}</td>
     <td>${safe(state.libraries.find(l => l.id == w.library_id)?.name || '')}</td>
     <td>${safe(w.description || '')}</td>
+    <td>
+      ${isAdmin() ? `
+        <button class="actionBtn"
+          onclick="window.editAQKWing(${Number(w.id)})">
+          Edit
+        </button>
+      ` : '—'}
+    </td>
   </tr>
-`).join('') || '<tr><td colspan="3">No wings yet.</td></tr>';    $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
+`).join('') || '<tr><td colspan="4">No wings yet.</td></tr>';
+    $('rackRows').innerHTML=state.racks.map(r=>`<tr><td>${safe(r.name)}</td><td>${safe(r.code||'')}</td><td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td><td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td></tr>`).join('')||'<tr><td colspan="4">No racks yet.</td></tr>';
     $('memberRows').innerHTML=state.members.map(m=>`<tr><td>${safe(m.member_no)}</td><td>${safe(m.full_name)}</td><td>${safe(m.member_type)}</td><td>${safe(m.college_id||'')}</td><td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td><td>${safe(m.contact||m.email||'')}</td></tr>`).join('')||'<tr><td colspan="6">No members yet.</td></tr>';
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
     $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
@@ -341,7 +349,62 @@ bookForm.addEventListener('submit', async e => {
   submitForm('userForm','users','Librarian account created.');
   $('settingsForm').addEventListener('submit',async e=>{e.preventDefault();const d=formPayload(e.currentTarget);try{for(const [key,value] of Object.entries(d))await api('settings',{method:'POST',body:JSON.stringify({key,value:Number(value)})});message('Fine settings saved.');await refresh();}catch(err){message(err.message);}});
   $('printReports').addEventListener('click',()=>window.print());
-  window.editAQKLibrary=async id=>{const l=state.libraries.find(x=>Number(x.id)===Number(id));if(!l||!isAdmin())return;const name=prompt('Library name:',l.name);if(name===null)return;const code=prompt('Library code:',l.code);if(code===null)return;try{await api('libraries',{method:'PATCH',body:JSON.stringify({id,name:name.trim(),code:code.trim()})});message('Library name updated.');await refresh();}catch(e){message(e.message);}};
+  window.editAQKLibrarywindow.editAQKWing = async function(id) {
+  if (!isAdmin()) {
+    message('Only Super Admin can edit wings.');
+    return;
+  }
+
+  const wing = state.wings.find(w => Number(w.id) === Number(id));
+  if (!wing) {
+    message('Wing not found.');
+    return;
+  }
+
+  const name = prompt('Enter Wing Name:', wing.name);
+  if (name === null) return;
+
+  const description = prompt(
+    'Enter Description:',
+    wing.description || ''
+  );
+  if (description === null) return;
+
+  const currentLibrary = state.libraries.find(
+    l => Number(l.id) === Number(wing.library_id)
+  );
+
+  const libraryCode = prompt(
+    'Enter Library Code:',
+    currentLibrary?.code || ''
+  );
+  if (libraryCode === null) return;
+
+  const library = state.libraries.find(
+    l => String(l.code).toUpperCase() === libraryCode.trim().toUpperCase()
+  );
+
+  if (!name.trim() || !library) {
+    message('Valid Wing Name and Library Code are required.');
+    return;
+  }
+
+  try {
+    await api(`wings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: name.trim(),
+        description: description.trim() || null,
+        library_id: Number(library.id)
+      })
+    });
+
+    message('Management Wing updated successfully.');
+    await refresh();
+  } catch (err) {
+    message(err.message);
+  }
+};=async id=>{const l=state.libraries.find(x=>Number(x.id)===Number(id));if(!l||!isAdmin())return;const name=prompt('Library name:',l.name);if(name===null)return;const code=prompt('Library code:',l.code);if(code===null)return;try{await api('libraries',{method:'PATCH',body:JSON.stringify({id,name:name.trim(),code:code.trim()})});message('Library name updated.');await refresh();}catch(e){message(e.message);}};
   $('libraryForm')?.addEventListener('submit', async e => {
   e.preventDefault();
 
