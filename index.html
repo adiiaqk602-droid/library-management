@@ -175,9 +175,41 @@
 
 </form>
 <div class="formGrid">
-  
-  <div class="tableWrap"><table><thead><tr><th>Serial / Title</th><th>Author</th><th>Library</th><th>Category</th><th>Copies</th><th>Available</th><th>Issued</th><th>Action</th></tr></thead><tbody id="bookRows"></tbody></table></div></section>
-<section id="categories" class="tab panel hidden">
+
+  <div class="wide">
+    <button type="button" id="printSelectedBooks">
+      Print Selected Books
+    </button>
+
+    <button type="button" class="secondary" id="selectAllBooksBtn">
+      Select All
+    </button>
+  </div>
+
+  <div class="tableWrap">
+    <table>
+      <thead>
+        <tr>
+          <th>
+            <input type="checkbox" id="selectAllBooks">
+          </th>
+          <th>Serial / Title</th>
+          <th>Author</th>
+          <th>Library</th>
+          <th>Category</th>
+          <th>Copies</th>
+          <th>Available</th>
+          <th>Issued</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody id="bookRows"></tbody>
+    </table>
+  </div>
+
+</div>
+</section><section id="categories" class="tab panel hidden">
   <h2>Category Management</h2>
 
   <form id="categoryForm" class="formGrid">
