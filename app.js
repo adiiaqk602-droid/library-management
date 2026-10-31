@@ -342,6 +342,30 @@ bookForm.addEventListener('submit', async e => {
   $('settingsForm').addEventListener('submit',async e=>{e.preventDefault();const d=formPayload(e.currentTarget);try{for(const [key,value] of Object.entries(d))await api('settings',{method:'POST',body:JSON.stringify({key,value:Number(value)})});message('Fine settings saved.');await refresh();}catch(err){message(err.message);}});
   $('printReports').addEventListener('click',()=>window.print());
   window.editAQKLibrary=async id=>{const l=state.libraries.find(x=>Number(x.id)===Number(id));if(!l||!isAdmin())return;const name=prompt('Library name:',l.name);if(name===null)return;const code=prompt('Library code:',l.code);if(code===null)return;try{await api('libraries',{method:'PATCH',body:JSON.stringify({id,name:name.trim(),code:code.trim()})});message('Library name updated.');await refresh();}catch(e){message(e.message);}};
+  $('libraryForm')?.addEventListener('submit', async e => {
+  e.preventDefault();
+
+  if (!isAdmin()) {
+    message('Only Super Admin can add libraries.');
+    return;
+  }
+
+  const form = e.currentTarget;
+  const data = formPayload(form);
+
+  try {
+    await api('libraries', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    form.reset();
+    message('New library added successfully.');
+    await refresh();
+  } catch (err) {
+    message(err.message);
+  }
+});
   window.editAQKBook=async id=>{const b=state.books.find(x=>Number(x.id)===Number(id));if(!b)return;const title=prompt('Book title:',b.title);if(title===null)return;const author=prompt('Author:',b.author||'');if(author===null)return;const price=prompt('Price in Rs.:',b.price||0);if(price===null)return;const vendor=prompt('Vendor / Publisher:',b.vendor||'');if(vendor===null)return;const edition=prompt('Edition:',b.edition||'');if(edition===null)return;const tag_id=prompt('Tag ID:',b.tag_id||'');if(tag_id===null)return;try{await api(`books/${id}`,{method:'PATCH',body:JSON.stringify({title:title.trim(),author:author||null,price:Number(price)||0,vendor:vendor||null,edition:edition||null,tag_id:tag_id||null})});message('Book record updated.');await refresh();}catch(e){message(e.message);}};
 window.editAQKCategory=async id=>{
   const c=state.categories.find(x=>Number(x.id)===Number(id));
