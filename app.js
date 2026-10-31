@@ -82,9 +82,23 @@ function render(){
     fillSelects();
     $('libraryCards').innerHTML=state.libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code)}${l.id==state.user.library_id&&!isAdmin()?' · Your assigned library':''}</p></div>`).join('');
     $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
-    $('bookRows').innerHTML=state.books.map(b=>{const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));return `<tr><td>${safe(b.ser_no||'—')}<br><b>${safe(b.title)}</b><div class="muted small">Tag: ${safe(b.tag_id||'—')}</div></td><td>${safe(b.author||'—')}</td><td>${safe(state.libraries.find(l=>l.id==b.library_id)?.name||'')}</td><td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td><td>${cp.length}</td><td>${cp.filter(c=>c.status==='available').length}</td><td>${cp.filter(c=>c.status==='issued').length}</td><td><button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button> <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button></td></tr>`}).join('')||'<tr><td colspan="8">No books entered yet.</td></tr>';
-
-renderCategorySearch();
+$('bookRows').innerHTML=state.books.map(b=>{
+  const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));
+  return `<tr>
+    <td><input type="checkbox" class="bookSelectCheckbox" data-book-id="${Number(b.id)}"></td>
+    <td>${safe(b.ser_no||'—')}<br><b>${safe(b.title)}</b><div class="muted small">Tag: ${safe(b.tag_id||'—')}</div></td>
+    <td>${safe(b.author||'—')}</td>
+    <td>${safe(state.libraries.find(l=>l.id==b.library_id)?.name||'')}</td>
+    <td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td>
+    <td>${cp.length}</td>
+    <td>${cp.filter(c=>c.status==='available').length}</td>
+    <td>${cp.filter(c=>c.status==='issued').length}</td>
+    <td>
+      <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
+      <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
+    </td>
+  </tr>`;
+}).join('')||'<tr><td colspan="9">No books entered yet.</td></tr>';renderCategorySearch();
 
 $('wingRows').innerHTML = state.wings.map(w => `
   <tr>
@@ -218,7 +232,50 @@ $('monthlyRows').innerHTML = reportRows(
   $('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab));});
   $('categorySearch')?.addEventListener('input', renderCategorySearch);
 $('categoryLibraryFilter')?.addEventListener('change', renderCategorySearch);document.querySelectorAll('[data-refresh]').forEach(b=>b.addEventListener('click',()=>refresh().catch(e=>message(e.message))));
-  function formPayload(form){const d=Object.fromEntries(new FormData(form));for(const k of Object.keys(d))if(d[k]==='')d[k]=null;return d;}
+  // AQK: Select all books
+$('selectAllBooks')?.addEventListener('change', e => {
+  document.querySelectorAll('.bookSelectCheckbox').forEach(box => {
+    box.checked = e.target.checked;
+  });
+});
+
+// AQK: Select all button
+$('selectAllBooksBtn')?.addEventListener('click', () => {
+  document.querySelectorAll('.bookSelectCheckbox').forEach(box => {
+    box.checked = true;
+  });
+
+  if ($('selectAllBooks')) {
+    $('selectAllBooks').checked = true;
+  }
+});
+
+// AQK: Update Select All checkbox when individual books change
+$('bookRows')?.addEventListener('change', e => {
+  if (!e.target.classList.contains('bookSelectCheckbox')) return;
+
+  const boxes = [...document.querySelectorAll('.bookSelectCheckbox')];
+
+  if ($('selectAllBooks')) {
+    $('selectAllBooks').checked =
+      boxes.length > 0 && boxes.every(box => box.checked);
+  }
+});
+  // AQK: Print selected books
+$('printSelectedBooks')?.addEventListener('click', () => {
+  const ids = [
+    ...document.querySelectorAll('.bookSelectCheckbox:checked')
+  ]
+    .map(box => Number(box.dataset.bookId))
+    .filter(id => Number.isFinite(id));
+
+  if (!ids.length) {
+    message('Please select at least one book.');
+    return;
+  }
+
+  window.printAQKMultiple(ids);
+});function formPayload(form){const d=Object.fromEntries(new FormData(form));for(const k of Object.keys(d))if(d[k]==='')d[k]=null;return d;}
   async function submitForm(id,endpoint,success,transform){$(id).addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;let data=formPayload(form);if(transform)data=transform(data);try{await api(endpoint,{method:'POST',body:JSON.stringify(data)});form.reset();message(success);await refresh();}catch(err){message(err.message);}});}
 let printAfterBookSave = false;
 
@@ -713,7 +770,344 @@ window.printAQKLabels = id => {
 
   w.document.close();
 };
+// AQK: Print multiple selected books in one print job
+window.printAQKMultiple = ids => {
+  const selectedBooks = ids
+    .map(id => state.books.find(b => Number(b.id) === Number(id)))
+    .filter(Boolean);
 
+  if (!selectedBooks.length) {
+    message('Please select at least one book.');
+    return;
+  }
+
+  const w = window.open('', '_blank');
+
+  if (!w) {
+    message('Please allow pop-ups to print.');
+    return;
+  }
+
+  const value = v =>
+    v !== null && v !== undefined && v !== '' ? v : '—';
+
+  const money = v =>
+    v !== null && v !== undefined && v !== ''
+      ? 'Rs. ' + Number(v).toLocaleString('en-PK')
+      : '—';
+
+  const pages = selectedBooks.map((b, index) => {
+    const copies = state.copies.filter(
+      c => Number(c.book_id) === Number(b.id)
+    );
+
+    const library = state.libraries.find(
+      x => Number(x.id) === Number(b.library_id)
+    );
+    const category = state.categories.find(
+      x => Number(x.id) === Number(b.category_id)
+    );
+    const wing = state.wings.find(
+      x => Number(x.id) === Number(b.wing_id)
+    );
+    const rack = state.racks.find(
+      x => Number(x.id) === Number(b.rack_id)
+    );
+
+    const details = [
+      ['Serial Number', b.ser_no],
+      ['Accession Number', b.accession_no],
+      ['Entry Date', b.entry_date || b.date],
+      ['Book Title', b.title],
+      ['Author Name', b.author],
+      ['Co-Author Name', b.co_author],
+      ['ISBN Number', b.isbn],
+      ['Edition', b.edition],
+      ['Volume Number', b.volume_number],
+      ['Publisher', b.publisher || b.vendor],
+      ['Publication Year', b.publication_year],
+      ['Academic Year', b.academic_year],
+      ['Number of Pages', b.pages],
+      ['Language', b.language],
+      ['Category', category?.name],
+      ['Subcategory', b.subcategory],
+      ['Library', library?.name],
+      ['Management Wing', wing?.name],
+      ['Department / Class', b.department_class],
+      ['Rack Number', rack?.name || b.rack_number],
+      ['Shelf Number', b.shelf_number],
+      ['Unique Tag ID', b.tag_id],
+      ['Vendor / Supplier', b.vendor],
+      ['Purchase Date', b.purchase_date],
+      ['Invoice Number', b.invoice_number],
+      ['Purchase Price', money(b.price)],
+      ['Discount', money(b.discount)],
+      ['Total Quantity / Copies', b.copy_count || copies.length],
+      ['Book Condition', b.condition],
+      ['Stock Type', b.stock_type],
+      ['Donor Information', b.donor_information],
+      ['Book Description', b.description]
+    ];
+
+    const detailRows = details.map(([name, val]) => `
+      <tr>
+        <th>${safe(name)}</th>
+        <td>${safe(value(val))}</td>
+      </tr>
+    `).join('');
+
+    const copyRows = copies.length
+      ? copies.map((c, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${safe(c.copy_code || '—')}</td>
+            <td>${safe(c.library_name || library?.name || '—')}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="3">No physical copy IDs found.</td></tr>';
+
+    return `
+      <div class="report">
+        <div class="header">
+          <div class="emblem">📖</div>
+          <h1>Dr A Q Khan School &amp; College</h1>
+          <p>Bahria Town Phase-8</p>
+          <p>AQK Library Management System</p>
+        </div>
+
+        <div class="libraryName">
+          ${safe(library?.name || 'AQK Library')}
+        </div>
+
+        <div class="reportTitle">
+          BOOK ENTRY - INVENTORY REGISTER
+        </div>
+
+        <div class="subtitle">
+          Book Record ${index + 1} of ${selectedBooks.length}
+          · Internal Library Documentation
+        </div>
+
+        <div class="sectionTitle">BOOK INFORMATION</div>
+
+        <table>
+          <tbody>${detailRows}</tbody>
+        </table>
+
+        <div class="sectionTitle">PHYSICAL COPY REGISTER</div>
+
+        <table class="copyTable">
+          <thead>
+            <tr>
+              <th>Sr. No.</th>
+              <th>Physical Copy ID</th>
+              <th>Library</th>
+            </tr>
+          </thead>
+          <tbody>${copyRows}</tbody>
+        </table>
+
+        <div class="summary">
+          <span><b>Total Copies:</b> ${copies.length || Number(b.copy_count || 0)}</span>
+          <span><b>Printed Date:</b> ${new Date().toLocaleDateString('en-GB')}</span>
+        </div>
+
+        <div class="footer">
+          <div class="confidential">
+            CONFIDENTIAL - FOR INTERNAL LIBRARY RECORDS
+          </div>
+          Dr A Q Khan School &amp; College · AQK Library Management System
+          <br>
+          This document is generated for official library inventory records.
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  w.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>AQK Multiple Book Register</title>
+
+      <style id="pageStyle">
+        @page { size: A4 portrait; margin: 10mm; }
+      </style>
+
+      <style>
+        * { box-sizing: border-box; }
+
+        body {
+          font-family: Georgia, "Times New Roman", serif;
+          color: #403326;
+          margin: 15px;
+        }
+
+        .toolbar {
+          text-align: center;
+          margin-bottom: 18px;
+        }
+
+        button {
+          padding: 9px 18px;
+          margin: 4px;
+          background: #6d5032;
+          color: white;
+          border: 1px solid #6d5032;
+          cursor: pointer;
+        }
+
+        .report {
+          background: #fffdf7;
+          border: 3px double #8b704b;
+          padding: 16px;
+          break-after: page;
+          page-break-after: always;
+        }
+
+        .report:last-child {
+          break-after: auto;
+          page-break-after: auto;
+        }
+
+        .header {
+          text-align: center;
+          border-bottom: 2px solid #8b704b;
+          padding-bottom: 10px;
+        }
+
+        .emblem {
+          width: 48px;
+          height: 48px;
+          border: 2px solid #8b704b;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          margin: 0 auto 6px;
+        }
+
+        .header h1 {
+          font-size: 20px;
+          margin: 3px 0;
+        }
+
+        .header p {
+          font-size: 11px;
+          margin: 3px 0;
+        }
+
+        .libraryName {
+          text-align: center;
+          font-size: 15px;
+          font-weight: bold;
+          margin: 10px 0 5px;
+          color: #6d5032;
+        }
+
+        .reportTitle {
+          text-align: center;
+          font-size: 17px;
+          font-weight: bold;
+          margin: 7px 0;
+          padding: 8px 0;
+          border-top: 1px solid #8b704b;
+          border-bottom: 1px solid #8b704b;
+        }
+
+        .subtitle {
+          text-align: center;
+          font-size: 10px;
+          margin-bottom: 10px;
+        }
+
+        .sectionTitle {
+          background: #eee4d1;
+          border: 1px solid #a58a63;
+          padding: 6px;
+          font-size: 12px;
+          font-weight: bold;
+          margin: 10px 0 0;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        th, td {
+          border: 1px solid #8f8069;
+          padding: 5px 7px;
+          font-size: 10px;
+          text-align: left;
+          vertical-align: top;
+          overflow-wrap: anywhere;
+        }
+
+        th {
+          width: 32%;
+          background: #f4eddf;
+          font-weight: bold;
+        }
+
+        .copyTable th { width: auto; }
+
+        .summary {
+          margin-top: 9px;
+          padding: 7px;
+          border: 1px solid #a58a63;
+          background: #f8f1e4;
+          font-size: 10px;
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .footer {
+          text-align: center;
+          border-top: 2px double #8b704b;
+          margin-top: 14px;
+          padding-top: 7px;
+          font-size: 9px;
+          line-height: 1.6;
+        }
+
+        .confidential {
+          font-weight: bold;
+          letter-spacing: 1px;
+        }
+
+        @media print {
+          body { margin: 0; }
+          .toolbar { display: none; }
+          .report { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          tr { break-inside: avoid; }
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="toolbar">
+        <button onclick="setPage('portrait')">Portrait</button>
+        <button onclick="setPage('landscape')">Landscape</button>
+        <button onclick="window.print()">Print Selected Books</button>
+      </div>
+
+      ${pages}
+
+      <script>
+        function setPage(mode) {
+          document.getElementById('pageStyle').textContent =
+            '@page { size: A4 ' + mode + '; margin: 10mm; }';
+        }
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  w.document.close();
+};
   // AQK E-Books module
   async function loadEbooks() {
     const rows = $('ebookRows');
