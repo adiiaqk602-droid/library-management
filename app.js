@@ -287,6 +287,7 @@ window.editAQKCategory=async id=>{
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
 
+
 window.printAQKLabels = id => {
   const b = state.books.find(x => Number(x.id) === Number(id));
   if (!b) {
@@ -301,29 +302,25 @@ window.printAQKLabels = id => {
   const library = state.libraries.find(
     x => Number(x.id) === Number(b.library_id)
   );
-
   const category = state.categories.find(
     x => Number(x.id) === Number(b.category_id)
   );
-
   const wing = state.wings.find(
     x => Number(x.id) === Number(b.wing_id)
   );
-
   const rack = state.racks.find(
     x => Number(x.id) === Number(b.rack_id)
   );
 
   const w = window.open('', '_blank');
-
   if (!w) {
-    message('Allow pop-ups to print labels.');
+    message('Please allow pop-ups to print.');
     return;
   }
 
   const details = [
     ['Serial No', b.ser_no],
-    ['Accession No', b.accession_no],
+    ['Accession No', b.accession_no || b.ser_no],
     ['Entry Date', b.entry_date || b.date],
     ['Book Title', b.title],
     ['Author', b.author],
@@ -338,134 +335,233 @@ window.printAQKLabels = id => {
     ['Rack', rack?.name]
   ];
 
-  const rows = details.map(([label, value]) => `
+  const detailRows = details.map(([name, value]) => `
     <tr>
-      <th>${safe(label)}</th>
+      <th>${safe(name)}</th>
       <td>${safe(value || '—')}</td>
     </tr>
   `).join('');
 
-  const labels = copies.length
+  const labelRows = copies.length
     ? copies.map(c => `
-        <div class="label">
-          <h3>Dr A Q Khan School &amp; College</h3>
-          <h4>${safe(b.title)}</h4>
-          <p><b>Accession No:</b> ${safe(b.accession_no || b.ser_no || '—')}</p>
-          <div class="code">${safe(c.copy_code)}</div>
-          <p>${safe(c.library_name || library?.name || '—')}</p>
-          <p><b>Category:</b> ${safe(category?.name || '—')}</p>
-          <p><b>Rack:</b> ${safe(rack?.name || '—')}</p>
+        <div class="copyLabel">
+          <div class="smallTitle">AQK LIBRARY</div>
+          <h3>${safe(b.title)}</h3>
+          <div class="copyCode">${safe(c.copy_code)}</div>
+          <p>${safe(c.library_name || library?.name || '')}</p>
         </div>
       `).join('')
-    : '<p>No physical copies found for this book.</p>';
+    : '<p>No physical copies found.</p>';
 
   w.document.write(`
-    <!doctype html>
+    <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>AQK Book Details & Labels</title>
+      <title>AQK Book Details</title>
+
+      <style id="pageStyle">
+        @page {
+          size: A4 portrait;
+          margin: 12mm;
+        }
+      </style>
+
       <style>
+        * { box-sizing: border-box; }
+
         body {
           font-family: Arial, sans-serif;
-          margin: 15mm;
-          color: #111;
+          color: #172b45;
+          margin: 15px;
         }
 
-        h1, h2 {
+        .toolbar {
           text-align: center;
-          margin: 5px 0;
+          margin-bottom: 20px;
+        }
+
+        button {
+          padding: 9px 18px;
+          margin: 4px;
+          border: 1px solid #172b45;
+          background: white;
+          color: #172b45;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 15px;
+          border-bottom: 2px solid #172b45;
+          padding-bottom: 12px;
+        }
+
+        .emblem {
+          width: 65px;
+          height: 65px;
+          border: 2px solid #172b45;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 30px;
         }
 
         .school {
           text-align: center;
-          font-size: 14px;
-          margin-bottom: 20px;
+        }
+
+        .school h1 {
+          font-size: 22px;
+          margin: 0 0 6px;
+        }
+
+        .school p {
+          margin: 0;
+          font-size: 13px;
+        }
+
+        .libraryName {
+          text-align: center;
+          font-size: 16px;
+          font-weight: bold;
+          margin: 13px 0;
+          border-bottom: 1px solid #172b45;
+          padding-bottom: 10px;
+        }
+
+        .bookTitle {
+          text-align: center;
+          font-size: 21px;
+          margin: 18px 0;
+          padding: 10px;
+          border-top: 1px solid #172b45;
+          border-bottom: 1px solid #172b45;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
-          margin: 20px 0;
+          margin-top: 12px;
         }
 
         th, td {
-          border: 1px solid #333;
-          padding: 9px;
+          border: 1px solid #526174;
+          padding: 8px 10px;
+          font-size: 12px;
           text-align: left;
         }
 
         th {
-          width: 30%;
-          background: #e8edf5;
+          width: 34%;
+          font-weight: bold;
+          background: #f1f4f8;
         }
 
-        .labelHeading {
-          margin-top: 30px;
-          border-bottom: 2px solid #222;
+        .copyHeading {
+          margin-top: 25px;
           padding-bottom: 8px;
+          border-bottom: 1px solid #172b45;
         }
 
-        .grid {
+        .labels {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 8mm;
-          margin-top: 15px;
+          gap: 12px;
+          margin-top: 12px;
         }
 
-        .label {
-          border: 2px solid #222;
-          padding: 10px;
+        .copyLabel {
+          border: 1px solid #172b45;
+          padding: 12px;
           text-align: center;
           break-inside: avoid;
         }
 
-        .label h3 {
-          font-size: 13px;
-          margin: 3px;
-        }
-
-        .label h4 {
-          font-size: 15px;
-          margin: 8px 0;
-        }
-
-        .label p {
+        .smallTitle {
           font-size: 11px;
-          margin: 5px;
+          letter-spacing: 2px;
         }
 
-        .code {
+        .copyLabel h3 {
+          font-size: 15px;
+          margin: 9px 0;
+        }
+
+        .copyCode {
+          border-top: 1px solid #172b45;
+          border-bottom: 1px solid #172b45;
+          padding: 8px;
           font-family: monospace;
-          font-weight: bold;
           font-size: 18px;
-          border: 1px solid #333;
-          padding: 7px;
-          margin: 8px 0;
+          font-weight: bold;
+        }
+
+        .copyLabel p {
+          font-size: 11px;
+          margin-bottom: 0;
+        }
+
+        .footer {
+          text-align: center;
+          border-top: 1px solid #172b45;
+          margin-top: 20px;
+          padding-top: 8px;
+          font-size: 10px;
         }
 
         @media print {
-          body { margin: 10mm; }
-          .label { break-inside: avoid; }
+          .toolbar { display: none; }
+          body { margin: 0; }
         }
       </style>
     </head>
-    <body>
-      <h1>Dr A Q Khan School &amp; College</h1>
-      <div class="school">AQK Library Management System</div>
 
-      <h2>Complete Book Details</h2>
+    <body>
+      <div class="toolbar">
+        <button onclick="setPage('portrait')">Portrait</button>
+        <button onclick="setPage('landscape')">Landscape</button>
+        <button onclick="window.print()">Print</button>
+      </div>
+
+      <div class="header">
+        <div class="emblem">📖</div>
+        <div class="school">
+          <h1>Dr A Q Khan School &amp; College</h1>
+          <p>AQK Library Management System</p>
+        </div>
+      </div>
+
+      <div class="libraryName">
+        ${safe(library?.name || 'AQK Library')}
+      </div>
+
+      <h2 class="bookTitle">${safe(b.title)}</h2>
 
       <table>
-        <tbody>${rows}</tbody>
+        <tbody>${detailRows}</tbody>
       </table>
 
-      <h2 class="labelHeading">AQK Book Labels</h2>
+      <h3 class="copyHeading">Book Copy Labels</h3>
 
-      <div class="grid">${labels}</div>
+      <div class="labels">
+        ${labelRows}
+      </div>
+
+      <div class="footer">
+        Dr A Q Khan School &amp; College · AQK Library Management System
+      </div>
 
       <script>
-        window.onload = () => window.print();
+        function setPage(mode) {
+          const style = document.getElementById('pageStyle');
+          style.textContent =
+            '@page { size: A4 ' + mode + '; margin: 12mm; }';
+        }
       <\/script>
     </body>
     </html>
@@ -473,7 +569,7 @@ window.printAQKLabels = id => {
 
   w.document.close();
 };
-  
+
   // AQK E-Books module
   async function loadEbooks() {
     const rows = $('ebookRows');
