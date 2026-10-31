@@ -59,15 +59,13 @@
   <label>Publisher
     <input name="publisher">
   </label>
-
-  <label>Publication Year
-    <label>Academic Year
-  <input name="academic_year"
-    placeholder="مثلاً 2026-2027">
+<label>Publication Year
+  <input name="publication_year" type="number" min="1000" max="2100">
 </label>
-    <input name="publication_year" type="number" min="1000" max="2100">
-  </label>
 
+<label>Academic Year
+  <input name="academic_year" placeholder="مثلاً 2026-2027">
+</label>
   <label>Number of Pages
     <input name="pages" type="number" min="0">
   </label>
@@ -270,7 +268,26 @@
       <tbody id="categoryRows"></tbody>
     </table>
   </div>
-</section><section id="libraries" class="tab panel hidden"><h2>Management Wings &amp; Libraries</h2><h3>Libraries</h3><div id="libraryTable" class="tableWrap"></div><h3>Add Management Wing</h3><form id="wingForm" class="formGrid"><label>Wing name *<input name="name" required></label><label>Library<select name="library_id" id="wingLibrary" required></select></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><button type="submit">Add Wing</button></form><div class="tableWrap"><table><thead><tr><th>Wing</th><th>Library</th><th>Description</th></tr></thead><tbody id="wingRows"></tbody></table></div></section>
+</section><section id="libraries" class="tab panel hidden"><h2>Management Wings &amp; Libraries</h2><h3>Add New Library</h3>
+
+<form id="libraryForm" class="formGrid">
+  <label>Library Name *
+    <input name="name" required>
+  </label>
+
+  <label>Library Code *
+    <input name="code" required>
+  </label>
+
+  <label class="wide">Address
+    <input name="address">
+  </label>
+
+  <button type="submit">Add Library</button>
+</form>
+
+<h3>Existing Libraries</h3>
+<div id="libraryTable" class="tableWrap"></div><h3>Add Management Wing</h3><form id="wingForm" class="formGrid"><label>Wing name *<input name="name" required></label><label>Library<select name="library_id" id="wingLibrary" required></select></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><button type="submit">Add Wing</button></form><div class="tableWrap"><table><thead><tr><th>Wing</th><th>Library</th><th>Description</th></tr></thead><tbody id="wingRows"></tbody></table></div></section>
 <section id="members" class="tab panel hidden"><h2>Students &amp; Membership</h2><form id="memberForm" class="formGrid"><label>Full name *<input name="full_name" required></label><label>Member type<select name="member_type"><option>Student</option><option>Teacher</option><option>Staff</option></select></label><label>Student / College ID<input name="college_id"></label><label>Class / Department<input name="class_department"></label><label>Father / Guardian name<input name="father_name"></label><label>Contact<input name="contact"></label><label>Email<input name="email" type="email"></label><label>Membership expiry<input name="expiry_date" type="date"></label><label>Library<select name="library_id" id="memberLibrary" required></select></label><label class="wide">Address<textarea name="address" rows="2"></textarea></label><button type="submit">Add Member</button></form><div class="tableWrap"><table><thead><tr><th>Member No.</th><th>Name</th><th>Type</th><th>Roll / ID</th><th>Library</th><th>Contact</th></tr></thead><tbody id="memberRows"></tbody></table></div></section>
 <section id="inventory" class="tab panel hidden"><h2>Inventory &amp; Rack System Stock</h2><form id="rackForm" class="formGrid"><label>Rack name *<input name="name" required></label><label>Rack code<input name="code"></label><label>Library<select name="library_id" id="rackLibrary" required></select></label><label>Wing<select name="wing_id" id="rackWing"><option value="">Choose wing</option></select></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><button type="submit">Add Rack</button></form><h3>Racks</h3><div class="tableWrap"><table><thead><tr><th>Rack</th><th>Code</th><th>Library</th><th>Wing</th></tr></thead><tbody id="rackRows"></tbody></table></div><h3>Stock list</h3><div class="tableWrap"><table><thead><tr><th>Copy ID</th><th>Book</th><th>Library</th><th>Stock type</th><th>Condition</th><th>Status</th></tr></thead><tbody id="copyRows"></tbody></table></div></section>
 <section id="loans" class="tab panel hidden"><h2>Issue / Return Books &amp; Fine Dashboard</h2><form id="loanForm" class="formGrid"><label>Member<select name="member_id" id="loanMember" required></select></label><label>Available book copy<select name="copy_id" id="loanCopy" required></select></label><label>Issue date<input name="issue_date" type="date" required></label><label>Due date<input name="due_date" type="date" required></label><button type="submit">Issue Book</button></form><div class="tableWrap"><table><thead><tr><th>Member</th><th>Book / Copy</th><th>Library</th><th>Issue date</th><th>Due date</th><th>Return</th><th>Fine (Rs.)</th><th>Status / Action</th></tr></thead><tbody id="loanRows"></tbody></table></div><p class="muted small">Default fine: Rs. 10 per late day. Damaged fine: 50% of book price. Lost book: book price + Rs. 100, plus late fine if applicable. Super Admin can change rates in Reports.</p></section>
