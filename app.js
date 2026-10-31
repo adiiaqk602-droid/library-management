@@ -220,8 +220,65 @@ $('monthlyRows').innerHTML = reportRows(
 $('categoryLibraryFilter')?.addEventListener('change', renderCategorySearch);document.querySelectorAll('[data-refresh]').forEach(b=>b.addEventListener('click',()=>refresh().catch(e=>message(e.message))));
   function formPayload(form){const d=Object.fromEntries(new FormData(form));for(const k of Object.keys(d))if(d[k]==='')d[k]=null;return d;}
   async function submitForm(id,endpoint,success,transform){$(id).addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;let data=formPayload(form);if(transform)data=transform(data);try{await api(endpoint,{method:'POST',body:JSON.stringify(data)});form.reset();message(success);await refresh();}catch(err){message(err.message);}});}
-  submitForm('bookForm','books','Book saved and physical copy IDs generated.',d=>({...d,price:Number(d.price||0),pages:d.pages?Number(d.pages):null,copy_count:Number(d.copy_count||1)}));
-  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');submitForm('rackForm','racks','Rack saved.');
+let printAfterBookSave = false;
+
+const bookForm = $('bookForm');
+
+bookForm.addEventListener('click', e => {
+  if (e.target.closest('#savePrintBook')) {
+    printAfterBookSave = true;
+  }
+});
+
+bookForm.addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const form = e.currentTarget;
+
+  const previousIds = new Set(
+    state.books.map(b => Number(b.id))
+  );
+
+  let data = formPayload(form);
+
+  data = {
+    ...data,
+    price: Number(data.price || 0),
+    pages: data.pages ? Number(data.pages) : null,
+    copy_count: Number(data.copy_count || 1)
+  };
+
+  const shouldPrint = printAfterBookSave;
+  printAfterBookSave = false;
+
+  try {
+    await api('books', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    form.reset();
+
+    message('Book saved and physical copy IDs generated.');
+
+    await refresh();
+
+    if (shouldPrint) {
+      const savedBook = [...state.books]
+        .filter(b => !previousIds.has(Number(b.id)))
+        .sort((a, b) => Number(b.id) - Number(a.id))[0];
+
+      if (savedBook) {
+        window.printAQKLabels(savedBook.id);
+      } else {
+        message('Book saved, but its print record could not be identified.');
+      }
+    }
+
+  } catch (err) {
+    message(err.message);
+  }
+});  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');submitForm('rackForm','racks','Rack saved.');
   submitForm('memberForm','members','Membership record saved.');
   submitForm('loanForm','issue','Book issued successfully.',d=>d);
   submitForm('userForm','users','Librarian account created.');
@@ -288,8 +345,10 @@ window.editAQKCategory=async id=>{
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
 
 
+
 window.printAQKLabels = id => {
   const b = state.books.find(x => Number(x.id) === Number(id));
+
   if (!b) {
     message('Book record not found.');
     return;
@@ -313,52 +372,82 @@ window.printAQKLabels = id => {
   );
 
   const w = window.open('', '_blank');
+
   if (!w) {
     message('Please allow pop-ups to print.');
     return;
   }
 
+  const value = v =>
+    v !== null && v !== undefined && v !== ''
+      ? v
+      : '—';
+
+  const money = v =>
+    v !== null && v !== undefined && v !== ''
+      ? 'Rs. ' + Number(v).toLocaleString('en-PK')
+      : '—';
+
   const details = [
-    ['Serial No', b.ser_no],
-    ['Accession No', b.accession_no || b.ser_no],
+    ['Serial Number', b.ser_no],
+    ['Accession Number', b.accession_no],
     ['Entry Date', b.entry_date || b.date],
     ['Book Title', b.title],
-    ['Author', b.author],
-    ['Category', category?.name],
-    ['Price', b.price != null ? 'Rs. ' + b.price : ''],
-    ['Vendor / Publisher', b.vendor],
-    ['Pages', b.pages],
+    ['Author Name', b.author],
+    ['Co-Author Name', b.co_author],
+    ['ISBN Number', b.isbn],
     ['Edition', b.edition],
-    ['Tag ID', b.tag_id],
+    ['Volume Number', b.volume_number],
+    ['Publisher', b.publisher || b.vendor],
+    ['Publication Year', b.publication_year],
+    ['Academic Year', b.academic_year],
+    ['Number of Pages', b.pages],
+    ['Language', b.language],
+    ['Category', category?.name],
+    ['Subcategory', b.subcategory],
     ['Library', library?.name],
-    ['Wing', wing?.name],
-    ['Rack', rack?.name]
+    ['Management Wing', wing?.name],
+    ['Department / Class', b.department_class],
+    ['Rack Number', rack?.name || b.rack_number],
+    ['Shelf Number', b.shelf_number],
+    ['Unique Tag ID', b.tag_id],
+    ['Vendor / Supplier', b.vendor],
+    ['Purchase Date', b.purchase_date],
+    ['Invoice Number', b.invoice_number],
+    ['Purchase Price', money(b.price)],
+    ['Discount', money(b.discount)],
+    ['Total Quantity / Copies', b.copy_count || copies.length],
+    ['Book Condition', b.condition],
+    ['Stock Type', b.stock_type],
+    ['Donor Information', b.donor_information],
+    ['Book Description', b.description]
   ];
 
-  const detailRows = details.map(([name, value]) => `
+  const detailRows = details.map(([name, val]) => `
     <tr>
       <th>${safe(name)}</th>
-      <td>${safe(value || '—')}</td>
+      <td>${safe(value(val))}</td>
     </tr>
   `).join('');
 
   const labelRows = copies.length
-    ? copies.map(c => `
-        <div class="copyLabel">
-          <div class="smallTitle">AQK LIBRARY</div>
-          <h3>${safe(b.title)}</h3>
-          <div class="copyCode">${safe(c.copy_code)}</div>
-          <p>${safe(c.library_name || library?.name || '')}</p>
-        </div>
+    ? copies.map((c, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${safe(c.copy_code || '—')}</td>
+          <td>${safe(c.library_name || library?.name || '—')}</td>
+        </tr>
       `).join('')
-    : '<p>No physical copies found.</p>';
+    : `<tr><td colspan="3">No physical copy IDs found.</td></tr>`;
+
+  const generatedDate = new Date().toLocaleDateString('en-GB');
 
   w.document.write(`
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>AQK Book Details</title>
+      <title>AQK Book Entry Register</title>
 
       <style id="pageStyle">
         @page {
@@ -368,201 +457,256 @@ window.printAQKLabels = id => {
       </style>
 
       <style>
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+        }
 
         body {
-          font-family: Arial, sans-serif;
-          color: #172b45;
+          font-family: Georgia, "Times New Roman", serif;
+          color: #403326;
+          background: #f8f3e8;
           margin: 15px;
         }
 
         .toolbar {
           text-align: center;
-          margin-bottom: 20px;
+          margin-bottom: 18px;
         }
 
         button {
           padding: 9px 18px;
           margin: 4px;
-          border: 1px solid #172b45;
-          background: white;
-          color: #172b45;
-          border-radius: 4px;
+          background: #6d5032;
+          color: white;
+          border: 1px solid #6d5032;
           cursor: pointer;
         }
 
+        .report {
+          background: #fffdf7;
+          border: 3px double #8b704b;
+          padding: 22px;
+        }
+
         .header {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 15px;
-          border-bottom: 2px solid #172b45;
-          padding-bottom: 12px;
+          text-align: center;
+          border-bottom: 2px solid #8b704b;
+          padding-bottom: 13px;
         }
 
         .emblem {
-          width: 65px;
-          height: 65px;
-          border: 2px solid #172b45;
+          width: 55px;
+          height: 55px;
+          border: 2px solid #8b704b;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 30px;
+          font-size: 27px;
+          margin: 0 auto 8px;
         }
 
-        .school {
-          text-align: center;
-        }
-
-        .school h1 {
+        .header h1 {
           font-size: 22px;
-          margin: 0 0 6px;
+          margin: 3px 0;
+          letter-spacing: .5px;
         }
 
-        .school p {
-          margin: 0;
-          font-size: 13px;
+        .header p {
+          font-size: 12px;
+          margin: 4px 0;
         }
 
         .libraryName {
           text-align: center;
           font-size: 16px;
           font-weight: bold;
-          margin: 13px 0;
-          border-bottom: 1px solid #172b45;
-          padding-bottom: 10px;
+          margin: 13px 0 5px;
+          color: #6d5032;
         }
 
-        .bookTitle {
+        .reportTitle {
           text-align: center;
-          font-size: 21px;
-          margin: 18px 0;
-          padding: 10px;
-          border-top: 1px solid #172b45;
-          border-bottom: 1px solid #172b45;
+          font-size: 19px;
+          font-weight: bold;
+          letter-spacing: 1px;
+          margin: 8px 0;
+          padding: 10px 0;
+          border-top: 1px solid #8b704b;
+          border-bottom: 1px solid #8b704b;
+        }
+
+        .subtitle {
+          text-align: center;
+          font-size: 11px;
+          margin-bottom: 15px;
+        }
+
+        .sectionTitle {
+          background: #eee4d1;
+          border: 1px solid #a58a63;
+          padding: 8px;
+          font-size: 13px;
+          font-weight: bold;
+          margin: 16px 0 0;
+          color: #594329;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 12px;
+          margin-top: 0;
         }
 
         th, td {
-          border: 1px solid #526174;
-          padding: 8px 10px;
-          font-size: 12px;
+          border: 1px solid #b6a384;
+          padding: 7px 9px;
+          font-size: 11px;
           text-align: left;
+          vertical-align: top;
+          overflow-wrap: anywhere;
         }
 
         th {
-          width: 34%;
+          width: 32%;
+          background: #f4eddf;
           font-weight: bold;
-          background: #f1f4f8;
+          color: #594329;
         }
 
-        .copyHeading {
-          margin-top: 25px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #172b45;
+        .copyTable th {
+          width: auto;
+          background: #eee4d1;
         }
 
-        .labels {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
-          margin-top: 12px;
-        }
-
-        .copyLabel {
-          border: 1px solid #172b45;
-          padding: 12px;
-          text-align: center;
-          break-inside: avoid;
-        }
-
-        .smallTitle {
+        .summary {
+          margin-top: 13px;
+          padding: 9px;
+          border: 1px solid #a58a63;
+          background: #f8f1e4;
           font-size: 11px;
-          letter-spacing: 2px;
-        }
-
-        .copyLabel h3 {
-          font-size: 15px;
-          margin: 9px 0;
-        }
-
-        .copyCode {
-          border-top: 1px solid #172b45;
-          border-bottom: 1px solid #172b45;
-          padding: 8px;
-          font-family: monospace;
-          font-size: 18px;
-          font-weight: bold;
-        }
-
-        .copyLabel p {
-          font-size: 11px;
-          margin-bottom: 0;
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
         }
 
         .footer {
           text-align: center;
-          border-top: 1px solid #172b45;
-          margin-top: 20px;
-          padding-top: 8px;
+          border-top: 2px double #8b704b;
+          margin-top: 22px;
+          padding-top: 10px;
           font-size: 10px;
+          line-height: 1.7;
+        }
+
+        .confidential {
+          font-weight: bold;
+          letter-spacing: 1px;
+          color: #70512e;
         }
 
         @media print {
-          .toolbar { display: none; }
-          body { margin: 0; }
+          body {
+            margin: 0;
+            background: white;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .toolbar {
+            display: none;
+          }
+
+          .report {
+            border: 3px double #8b704b;
+          }
+
+          tr {
+            break-inside: avoid;
+          }
         }
       </style>
     </head>
 
     <body>
+
       <div class="toolbar">
         <button onclick="setPage('portrait')">Portrait</button>
         <button onclick="setPage('landscape')">Landscape</button>
-        <button onclick="window.print()">Print</button>
+        <button onclick="window.print()">Print Book Entry</button>
       </div>
 
-      <div class="header">
-        <div class="emblem">📖</div>
-        <div class="school">
+      <div class="report">
+
+        <div class="header">
+          <div class="emblem">📖</div>
           <h1>Dr A Q Khan School &amp; College</h1>
+          <p>Bahria Town Phase-8</p>
           <p>AQK Library Management System</p>
         </div>
-      </div>
 
-      <div class="libraryName">
-        ${safe(library?.name || 'AQK Library')}
-      </div>
+        <div class="libraryName">
+          ${safe(library?.name || 'AQK Library')}
+        </div>
 
-      <h2 class="bookTitle">${safe(b.title)}</h2>
+        <div class="reportTitle">
+          BOOK ENTRY - INVENTORY REGISTER
+        </div>
 
-      <table>
-        <tbody>${detailRows}</tbody>
-      </table>
+        <div class="subtitle">
+          Library Book Record · Internal Library Documentation
+        </div>
 
-      <h3 class="copyHeading">Book Copy Labels</h3>
+        <div class="sectionTitle">
+          BOOK INFORMATION
+        </div>
 
-      <div class="labels">
-        ${labelRows}
-      </div>
+        <table>
+          <tbody>
+            ${detailRows}
+          </tbody>
+        </table>
 
-      <div class="footer">
-        Dr A Q Khan School &amp; College · AQK Library Management System
+        <div class="sectionTitle">
+          PHYSICAL COPY REGISTER
+        </div>
+
+        <table class="copyTable">
+          <thead>
+            <tr>
+              <th>Sr. No.</th>
+              <th>Physical Copy ID</th>
+              <th>Library</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${labelRows}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          <span><b>Total Copies:</b> ${copies.length || Number(b.copy_count || 0)}</span>
+          <span><b>Printed Date:</b> ${generatedDate}</span>
+        </div>
+
+        <div class="footer">
+          <div class="confidential">
+            CONFIDENTIAL - FOR INTERNAL LIBRARY RECORDS
+          </div>
+          Dr A Q Khan School &amp; College · AQK Library Management System
+          <br>
+          This document is generated for official library inventory records.
+        </div>
+
       </div>
 
       <script>
         function setPage(mode) {
-          const style = document.getElementById('pageStyle');
-          style.textContent =
+          document.getElementById('pageStyle').textContent =
             '@page { size: A4 ' + mode + '; margin: 12mm; }';
         }
       <\/script>
+
     </body>
     </html>
   `);
