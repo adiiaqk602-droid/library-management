@@ -452,8 +452,165 @@ window.editAQKLibrary = async id => {
     message(err.message);
   }
 });
-  window.editAQKBook=async id=>{const b=state.books.find(x=>Number(x.id)===Number(id));if(!b)return;const title=prompt('Book title:',b.title);if(title===null)return;const author=prompt('Author:',b.author||'');if(author===null)return;const price=prompt('Price in Rs.:',b.price||0);if(price===null)return;const vendor=prompt('Vendor / Publisher:',b.vendor||'');if(vendor===null)return;const edition=prompt('Edition:',b.edition||'');if(edition===null)return;const tag_id=prompt('Tag ID:',b.tag_id||'');if(tag_id===null)return;try{await api(`books/${id}`,{method:'PATCH',body:JSON.stringify({title:title.trim(),author:author||null,price:Number(price)||0,vendor:vendor||null,edition:edition||null,tag_id:tag_id||null})});message('Book record updated.');await refresh();}catch(e){message(e.message);}};
-window.editAQKCategory=async id=>{
+
+window.editAQKBook=async id=>{
+  const b=state.books.find(x=>Number(x.id)===Number(id));
+  if(!b)return;
+
+  const isAdmin=state.user?.role==='super_admin';
+
+  const dialog=document.createElement('dialog');
+  dialog.style.cssText='width:min(520px,94vw);max-height:90vh;overflow:auto;border:1px solid #ccc;border-radius:12px;padding:20px;';
+
+  dialog.innerHTML=`
+    <h3>Edit Book / Library Assignment</h3>
+    <form id="aqkBookEditForm">
+      <label>Book Title</label>
+      <input name="title" required style="width:100%;margin:5px 0 12px;padding:9px">
+
+      <label>Author</label>
+      <input name="author" style="width:100%;margin:5px 0 12px;padding:9px">
+
+      <label>Price (Rs.)</label>
+      <input name="price" type="number" step="0.01" style="width:100%;margin:5px 0 12px;padding:9px">
+
+      <label>Vendor / Publisher</label>
+      <input name="vendor" style="width:100%;margin:5px 0 12px;padding:9px">
+
+      <label>Edition</label>
+      <input name="edition" style="width:100%;margin:5px 0 12px;padding:9px">
+
+      <label>Tag ID</label>
+      <input name="tag_id" style="width:100%;margin:5px 0 12px;padding:9px">
+
+      <hr>
+      <h4>Library Assignment</h4>
+
+      <label>Library</label>
+      <select name="library_id" style="width:100%;margin:5px 0 12px;padding:9px"></select>
+
+      <label>Category</label>
+      <select name="category_id" style="width:100%;margin:5px 0 12px;padding:9px"></select>
+
+      <label>Management Wing</label>
+      <select name="wing_id" style="width:100%;margin:5px 0 12px;padding:9px"></select>
+
+      <label>Rack</label>
+      <select name="rack_id" style="width:100%;margin:5px 0 12px;padding:9px"></select>
+
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button type="submit" style="padding:10px 18px">Save Changes</button>
+        <button type="button" id="aqkBookCancel" style="padding:10px 18px">Cancel</button>
+      </div>
+    </form>
+  `;
+
+  document.body.appendChild(dialog);
+
+  const form=dialog.querySelector('#aqkBookEditForm');
+  const librarySelect=form.elements.library_id;
+  const categorySelect=form.elements.category_id;
+  const wingSelect=form.elements.wing_id;
+  const rackSelect=form.elements.rack_id;
+
+  const libraries=isAdmin
+    ?state.libraries
+    :state.libraries.filter(x=>Number(x.id)===Number(b.library_id));
+
+  const addOptions=(select,items,selectedId)=>{
+    select.innerHTML='';
+    const first=document.createElement('option');
+    first.value='';
+    first.textContent='— Select —';
+    select.appendChild(first);
+
+    items.forEach(item=>{
+      const option=document.createElement('option');
+      option.value=item.id;
+      option.textContent=item.name||item.title||item.code||('ID '+item.id);
+      select.appendChild(option);
+    });
+
+    if(selectedId!=null)select.value=String(selectedId);
+  };
+
+  addOptions(librarySelect,libraries,b.library_id);
+  if(!isAdmin)librarySelect.disabled=true;
+
+  form.elements.title.value=b.title||'';
+  form.elements.author.value=b.author||'';
+  form.elements.price.value=b.price||0;
+  form.elements.vendor.value=b.vendor||'';
+  form.elements.edition.value=b.edition||'';
+  form.elements.tag_id.value=b.tag_id||'';
+
+  const loadLibraryOptions=(libraryId,keepCurrent)=>{
+    const categories=state.categories.filter(x=>Number(x.library_id)===Number(libraryId));
+    const wings=state.wings.filter(x=>Number(x.library_id)===Number(libraryId));
+    const racks=state.racks.filter(x=>Number(x.library_id)===Number(libraryId));
+
+    addOptions(categorySelect,categories,keepCurrent?b.category_id:null);
+    addOptions(wingSelect,wings,keepCurrent?b.wing_id:null);
+    addOptions(rackSelect,racks,keepCurrent?b.rack_id:null);
+  };
+
+  loadLibraryOptions(b.library_id,true);
+
+  librarySelect.addEventListener('change',()=>{
+    loadLibraryOptions(librarySelect.value,false);
+  });
+
+  dialog.querySelector('#aqkBookCancel').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+
+    const data={
+      title:form.elements.title.value.trim(),
+      author:form.elements.author.value.trim()||null,
+      price:Number(form.elements.price.value)||0,
+      vendor:form.elements.vendor.value.trim()||null,
+      edition:form.elements.edition.value.trim()||null,
+      tag_id:form.elements.tag_id.value.trim()||null,
+      category_id:categorySelect.value||null,
+      wing_id:wingSelect.value||null,
+      rack_id:rackSelect.value||null
+    };
+
+    if(isAdmin){
+      if(!librarySelect.value){
+        message('Please select a library.');
+        return;
+      }
+      data.library_id=Number(librarySelect.value);
+    }else{
+      data.library_id=Number(b.library_id);
+    }
+
+    if(!data.title){
+      message('Book title is required.');
+      return;
+    }
+
+    try{
+      await api(`books/${id}`,{
+        method:'PATCH',
+        body:JSON.stringify(data)
+      });
+
+      dialog.close();
+      message('Book record updated successfully.');
+      await refresh();
+    }catch(e){
+      message(e.message);
+    }
+  });
+
+  dialog.showModal();
+};
+
+  window.editAQKCategory=async id=>{
   const c=state.categories.find(x=>Number(x.id)===Number(id));
   if(!c)return;
 
