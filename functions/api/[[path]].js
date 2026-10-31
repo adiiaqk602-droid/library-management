@@ -108,6 +108,28 @@ async function handle(request,env){
   if(path==='libraries'&&method==='GET'){
     const rows=await env.DB.prepare(`SELECT * FROM libraries ${isAdmin(user)?'':'WHERE id=?'} ORDER BY name`).bind(...(isAdmin(user)?[]:[user.library_id])).all();return json({data:rows.results||[]});
   }
+  if(path==='libraries'&&method==='POST'){
+  if(!isAdmin(user))return fail('Only Super Admin can add libraries.',403);
+
+  const d=await bodyJson(request);
+  const name=String(d?.name||'').trim();
+  const code=String(d?.code||'').trim().toUpperCase();
+  const address=String(d?.address||'').trim();
+
+  if(!name||!code)return fail('Library name and code are required.');
+
+  try{
+    const result=await env.DB.prepare(
+      'INSERT INTO libraries(name,code,address) VALUES(?,?,?)'
+    ).bind(name,code,address||null).run();
+
+    await audit(env,user,'create','libraries',result.meta.last_row_id,code);
+
+    return json({ok:true,id:result.meta.last_row_id},201);
+  }catch(e){
+    return fail('Could not add library. The library name or code may already exist.',409);
+  }
+}
   if(path==='libraries'&&method==='PATCH'){
     if(!isAdmin(user))return fail('Only Super Admin can rename libraries.',403);const d=await bodyJson(request);if(!d||!Number(d.id)||!String(d.name||'').trim())return fail('Library ID and name are required.');try{await env.DB.prepare('UPDATE libraries SET name=?,code=? WHERE id=?').bind(String(d.name).trim(),String(d.code||'').trim()||`LIB-${String(d.id).padStart(2,'0')}`,Number(d.id)).run();await audit(env,user,'update','libraries',d.id,'');return json({ok:true});}catch{return fail('Could not update library name/code. The name or code may already exist.',409);}
   }
