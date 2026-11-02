@@ -1051,14 +1051,7 @@ export async function onRequest(context){
   try{
     return await handle(context.request,context.env);
   }catch(e){
-    return json({
-      error:'Server error. Check D1 migration and Cloudflare function logs.'
-    },500);
-  }
-}
-  try{
-    return await handle(context.request,context.env);
-  }catch(e){
+    console.error("AQK API ERROR:", e?.stack || e);
     return json({
       error:'Server error. Check D1 migration and Cloudflare function logs.'
     },500);
