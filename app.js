@@ -432,65 +432,24 @@ bookForm.addEventListener('submit', async e => {
   } catch (err) {
     message(err.message);
   }
-});  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');$('rackForm').addEventListener('submit', function () {// EDIT RACK
-window.editAQKRack = async function(id) {
-  const rack = state.racks.find(r => Number(r.id) === Number(id));
-  if (!rack) {
-    message('Rack not found.');
-    return;
-  }
+}); 
+  submitForm('categoryForm','categories','Category saved.');
+submitForm('wingForm','wings','Management wing saved.');
 
-  const name = prompt('Rack Name:', rack.name || '');
-  if (name === null) return;
-  if (!name.trim()) {
-    message('Rack name is required.');
-    return;
-  }
-
-  const code = prompt('Rack Code:', rack.code || '');
-  if (code === null) return;
-
-  try {
-    await api(`racks/${id}`, {
-      method: 'PATCH',
-      body: {
-        name: name.trim(),
-        code: code.trim(),
-        library_id: rack.library_id,
-        wing_id: rack.wing_id
-      }
-    });
-
-    message('Rack updated successfully.');
-    await refresh();
-  } catch (e) {
-    message(e.message);
-  }
-};
-
-// DELETE RACK
-window.deleteAQKRecord = async function(table, id) {
-  if (!confirm('Are you sure you want to delete this record?')) return;
-
-  try {
-    await api(`${table}/${id}`, { method: 'DELETE' });
-    message('Record deleted successfully.');
-    await refresh();
-  } catch (e) {
-    message(e.message);
-  }
-};
+// Rack auto-code
+$('rackForm').addEventListener('submit', function () {
   const codeInput = this.elements.namedItem('code');
 
   if (codeInput && !codeInput.value.trim()) {
-    const numbers = state.racks
-      .map(r => Number((r.code || '').match(/^RACK-(\d+)$/i)?.[1] || 0));
+    const numbers = state.racks.map(r =>
+      Number((r.code || '').match(/^RACK-(\d+)$/i)?.[1] || 0)
+    );
 
     const nextNumber = Math.max(0, ...numbers) + 1;
-
     codeInput.value = 'RACK-' + String(nextNumber).padStart(3, '0');
   }
 });
+
 submitForm('rackForm','racks','Rack saved.');
   $('loadRackBooks').addEventListener('click', async () => {
   const rackId = $('rackBooksSelect').value;
@@ -907,8 +866,11 @@ window.editAQKRack = async function(id) {
   }catch(e){
     message(e.message);
   }
-};  window.deleteAQKRecord = async (table, id) => {
-  if (!confirm(`Delete this ${table.slice(0, -1)}? This cannot be undone.`)) return;
+};  
+  window.deleteAQKRecord = async (table, id) => {
+  if (!confirm(`Delete this ${table.slice(0, -1)}? This cannot be undone.`)) {
+    return;
+  }
 
   try {
     await api(`${table}/${id}`, { method: 'DELETE' });
@@ -917,11 +879,10 @@ window.editAQKRack = async function(id) {
   } catch (e) {
     message(e.message);
   }
+};
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
-
-
-
+  
 window.printAQKLabels = id => {
   const b = state.books.find(x => Number(x.id) === Number(id));
 
