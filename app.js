@@ -185,19 +185,20 @@ $('wingRows').innerHTML = state.wings.map(w => `
   </tr>
 `).join('') || '<tr><td colspan="4">No wings yet.</td></tr>';
   renderLibraryInventory();
- $('rackRows').innerHTML = state.racks.map(r => `
+ console.log('AQK Rack Data:', state.racks);
+  $('rackRows').innerHTML = state.racks.map(r => `
   <tr>
     <td>${safe(r.name)}</td>
     <td>${safe(r.code || '')}</td>
     <td>${safe(state.libraries.find(l => Number(l.id) === Number(r.library_id))?.name || '')}</td>
     <td>${safe(state.wings.find(w => Number(w.id) === Number(r.wing_id))?.name || '')}</td>
     <td>
-      <button class="actionBtn"
+      <button type="button" class="actionBtn"
         onclick="window.editAQKRack(${Number(r.id)})">
         Edit
       </button>
-      <button class="actionBtn danger"
-        onclick="window.deleteAQKRecord('racks',${Number(r.id)})">
+      <button type="button" class="actionBtn danger"
+        onclick="window.deleteAQKRecord('racks', ${Number(r.id)})">
         Delete
       </button>
     </td>
