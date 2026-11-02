@@ -185,16 +185,24 @@ $('wingRows').innerHTML = state.wings.map(w => `
   </tr>
 `).join('') || '<tr><td colspan="4">No wings yet.</td></tr>';
   renderLibraryInventory();
-  $('rackRows').innerHTML=state.racks.map(r=>`<tr>
-<td>${safe(r.name)}</td>
-<td>${safe(r.code||'')}</td>
-<td>${safe(state.libraries.find(l=>l.id==r.library_id)?.name||'')}</td>
-<td>${safe(state.wings.find(w=>w.id==r.wing_id)?.name||'')}</td>
-<td>${safe(r.rack_number||'')}</td>
-<td>${safe(r.shelf_number||'')}</td>
-<td>${safe(r.location_code||'')}</td>
-<td>${Number(r.minimum_stock||0)}</td>
-</tr>`).join('')||'<tr><td colspan="8">No racks yet.</td></tr>';
+ $('rackRows').innerHTML = state.racks.map(r => `
+  <tr>
+    <td>${safe(r.name)}</td>
+    <td>${safe(r.code || '')}</td>
+    <td>${safe(state.libraries.find(l => Number(l.id) === Number(r.library_id))?.name || '')}</td>
+    <td>${safe(state.wings.find(w => Number(w.id) === Number(r.wing_id))?.name || '')}</td>
+    <td>
+      <button class="actionBtn"
+        onclick="window.editAQKRack(${Number(r.id)})">
+        Edit
+      </button>
+      <button class="actionBtn danger"
+        onclick="window.deleteAQKRecord('racks',${Number(r.id)})">
+        Delete
+      </button>
+    </td>
+  </tr>
+`).join('') || '<tr><td colspan="5">No racks yet.</td></tr>';
     $('memberRows').innerHTML=state.members.map(m=>`<tr><td>${safe(m.member_no)}</td><td>${safe(m.full_name)}</td><td>${safe(m.member_type)}</td><td>${safe(m.college_id||'')}</td><td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td><td>${safe(m.contact||m.email||'')}</td></tr>`).join('')||'<tr><td colspan="6">No members yet.</td></tr>';
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
     $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
@@ -424,7 +432,54 @@ bookForm.addEventListener('submit', async e => {
   } catch (err) {
     message(err.message);
   }
-});  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');$('rackForm').addEventListener('submit', function () {
+});  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');$('rackForm').addEventListener('submit', function () {// EDIT RACK
+window.editAQKRack = async function(id) {
+  const rack = state.racks.find(r => Number(r.id) === Number(id));
+  if (!rack) {
+    message('Rack not found.');
+    return;
+  }
+
+  const name = prompt('Rack Name:', rack.name || '');
+  if (name === null) return;
+  if (!name.trim()) {
+    message('Rack name is required.');
+    return;
+  }
+
+  const code = prompt('Rack Code:', rack.code || '');
+  if (code === null) return;
+
+  try {
+    await api(`racks/${id}`, {
+      method: 'PATCH',
+      body: {
+        name: name.trim(),
+        code: code.trim(),
+        library_id: rack.library_id,
+        wing_id: rack.wing_id
+      }
+    });
+
+    message('Rack updated successfully.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
+
+// DELETE RACK
+window.deleteAQKRecord = async function(table, id) {
+  if (!confirm('Are you sure you want to delete this record?')) return;
+
+  try {
+    await api(`${table}/${id}`, { method: 'DELETE' });
+    message('Record deleted successfully.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
   const codeInput = this.elements.namedItem('code');
 
   if (codeInput && !codeInput.value.trim()) {
@@ -747,7 +802,57 @@ window.editAQKBook=async id=>{
 
   dialog.showModal();
 };
+window.editAQKRack = async function(id) {
+  const r = state.racks.find(x => Number(x.id) === Number(id));
 
+  if (!r) {
+    message('Rack not found.');
+    return;
+  }
+
+  const name = prompt('Rack Name:', r.name || '');
+  if (name === null) return;
+
+  const code = prompt('Rack Code:', r.code || '');
+  if (code === null) return;
+
+  const rack_number = prompt('Rack Number:', r.rack_number || '');
+  if (rack_number === null) return;
+
+  const shelf_number = prompt('Shelf Number:', r.shelf_number || '');
+  if (shelf_number === null) return;
+
+  const location_code = prompt('Location Code:', r.location_code || '');
+  if (location_code === null) return;
+
+  const minimum_stock = prompt('Minimum Stock:', r.minimum_stock || 0);
+  if (minimum_stock === null) return;
+
+  if (!name.trim() || !code.trim()) {
+    message('Rack Name and Rack Code are required.');
+    return;
+  }
+
+  try {
+    await api(`racks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: name.trim(),
+        code: code.trim(),
+        rack_number: rack_number.trim() || null,
+        shelf_number: shelf_number.trim() || null,
+        location_code: location_code.trim() || null,
+        minimum_stock: Number(minimum_stock) || 0
+      })
+    });
+
+    message('Rack updated successfully.');
+    await refresh();
+
+  } catch (err) {
+    message(err.message);
+  }
+};
   window.editAQKCategory=async id=>{
   const c=state.categories.find(x=>Number(x.id)===Number(id));
   if(!c)return;
@@ -802,7 +907,16 @@ window.editAQKBook=async id=>{
   }catch(e){
     message(e.message);
   }
-};  window.deleteAQKRecord=async(table,id)=>{if(!confirm('Delete this category? This cannot be undone.'))return;try{await api(`${table}/${id}`,{method:'DELETE'});message('Record deleted.');await refresh();}catch(e){message(e.message);}};
+};  window.deleteAQKRecord = async (table, id) => {
+  if (!confirm(`Delete this ${table.slice(0, -1)}? This cannot be undone.`)) return;
+
+  try {
+    await api(`${table}/${id}`, { method: 'DELETE' });
+    message('Record deleted successfully.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
 
