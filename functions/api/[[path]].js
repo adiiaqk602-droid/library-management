@@ -3,7 +3,20 @@ const SESSION_DAYS = 7;
 const TABLES = {
   categories: { fields: ["name","code","description","library_id"], scoped: true },
   wings: { fields: ["name","library_id","description"], scoped: true },
-  racks: { fields: ["name","code","library_id","wing_id","description"], scoped: true },
+ racks: {
+  fields: [
+    "name",
+    "code",
+    "library_id",
+    "wing_id",
+    "description",
+    "rack_number",
+    "shelf_number",
+    "location_code",
+    "minimum_stock"
+  ],
+  scoped: true
+},
 books: { fields: ["ser_no","accession_no","entry_date","title","author","co_author","isbn","price","vendor","pages","edition","volume_number","publisher","publication_year","language","category_id","subcategory","library_id","wing_id","department_class","rack_id","shelf_number","tag_id","description","purchase_date","invoice_number","discount","donor_information","cover_image"], scoped: true },  members: { fields: ["member_no","full_name","member_type","college_id","class_department","father_name","contact","email","expiry_date","library_id","address","active"], scoped: true }
 };
 const json = (data, status=200, extra={}) => new Response(JSON.stringify(data), { status, headers: {"content-type":"application/json; charset=utf-8", "cache-control":"no-store", ...extra} });
