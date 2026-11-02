@@ -88,6 +88,102 @@ async function handle(request,env){
   if(path==='settings'&&method==='POST'){
     if(!isAdmin(user))return fail('Only Super Admin can change fine settings.',403);const d=await bodyJson(request);const allowed={fine_per_day:0,damaged_fine_percent:0,lost_book_extra_fine:0,loan_days:1};if(!d||!(d.key in allowed)||!Number.isFinite(Number(d.value))||Number(d.value)<allowed[d.key])return fail('Invalid setting.');await env.DB.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(d.key,String(d.value)).run();return json({ok:true});
   }
+    // INVENTORY SUMMARY: stock by library, type, status and condition
+  if(path==='inventory/summary'&&method==='GET'){
+    const libraryFilter=isAdmin(user)?'':' AND b.library_id=?';
+    const binds=isAdmin(user)?[]:[user.library_id];
+
+    const stock=await env.DB.prepare(`
+      SELECT
+        b.library_id,
+        lib.name AS library_name,
+        COALESCE(bc.stock_type,'New') AS stock_type,
+        COALESCE(bc.status,'available') AS status,
+        COALESCE(bc.condition,'Good') AS condition,
+        COUNT(*) AS quantity
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      JOIN libraries lib ON lib.id=b.library_id
+      WHERE 1=1 ${libraryFilter}
+      GROUP BY b.library_id,lib.name,bc.stock_type,bc.status,bc.condition
+      ORDER BY lib.name,bc.stock_type,bc.status
+    `).bind(...binds).all();
+
+    const racks=await env.DB.prepare(`
+      SELECT
+        r.id,r.name,r.code,r.rack_number,r.shelf_number,
+        r.location_code,r.minimum_stock,r.library_id,
+        lib.name AS library_name,
+        COUNT(bc.id) AS current_stock
+      FROM racks r
+      JOIN libraries lib ON lib.id=r.library_id
+      LEFT JOIN book_copies bc ON bc.rack_id=r.id
+      WHERE 1=1 ${isAdmin(user)?'':' AND r.library_id=?'}
+      GROUP BY r.id
+      ORDER BY lib.name,r.name
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+    return json({
+      stock:stock.results||[],
+      racks:racks.results||[]
+    });
+  }
+
+  // RACK-WISE BOOK LIST
+  if(path==='inventory/rack-books'&&method==='GET'){
+    const rackId=Number(url.searchParams.get('rack_id')||0);
+    if(!rackId)return fail('Rack ID is required.');
+
+    const rack=await env.DB.prepare(
+      'SELECT id,library_id FROM racks WHERE id=?'
+    ).bind(rackId).first();
+
+    if(!rack)return fail('Rack not found.',404);
+    if(!assertLibrary(user,rack.library_id))
+      return fail('You cannot view another library rack.',403);
+
+    const rows=await env.DB.prepare(`
+      SELECT
+        bc.*,
+        b.title,b.author,b.ser_no,b.accession_no,b.price,
+        b.library_id,
+        r.name AS rack_name,
+        r.rack_number,
+        r.shelf_number AS rack_shelf_number
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      LEFT JOIN racks r ON r.id=bc.rack_id
+      WHERE COALESCE(bc.rack_id,b.rack_id)=?
+        AND b.library_id=?
+      ORDER BY b.title,bc.copy_code
+    `).bind(rackId,rack.library_id).all();
+
+    return json({data:rows.results||[]});
+  }
+
+  // INVENTORY MOVEMENT HISTORY
+  if(path==='inventory/movements'&&method==='GET'){
+    const rows=await env.DB.prepare(`
+      SELECT
+        m.*,
+        b.title AS book_title,
+        bc.copy_code,
+        r.name AS rack_name,
+        lib.name AS library_name,
+        u.full_name AS user_name
+      FROM inventory_movements m
+      LEFT JOIN books b ON b.id=m.book_id
+      LEFT JOIN book_copies bc ON bc.id=m.copy_id
+      LEFT JOIN racks r ON r.id=m.rack_id
+      JOIN libraries lib ON lib.id=m.library_id
+      LEFT JOIN users u ON u.id=m.user_id
+      WHERE 1=1 ${isAdmin(user)?'':' AND m.library_id=?'}
+      ORDER BY m.created_at DESC
+      LIMIT 1000
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+    return json({data:rows.results||[]});
+  }
   if(path==='reports'&&method==='GET'){
     const sc=scopeSql(user,'l');const [bookCount,copyCount,memberCount,activeLoans,overdue,fines,categoryRows,libraryRows,inventoryRows]=await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) n FROM books b WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
