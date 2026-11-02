@@ -1054,11 +1054,12 @@ if (table === 'racks') {
     } catch (e) {
       return fail('Could not delete record.', 409);
     }
-  }
-return fail('Method not allowed.', 405);
+    }
+
+  return fail('Method not allowed.', 405);
 }
 
-export async function onRequest(context){
+export async function onRequest(context) {
   try{
     return await handle(context.request,context.env);
   }catch(e){
