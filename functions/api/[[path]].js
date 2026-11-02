@@ -184,6 +184,139 @@ async function handle(request,env){
 
     return json({data:rows.results||[]});
   }
+   // STOCK IN / OUT, CONDITION CHANGES AND STOCK ADJUSTMENT
+  if(path==='inventory/movement'&&method==='POST'){
+    const d=await bodyJson(request);
+    if(!d)return fail('Invalid request.');
+
+    const copyId=Number(d.copy_id);
+    const movementType=String(d.movement_type||'').toLowerCase();
+
+    const allowedTypes=[
+      'stock_in',
+      'stock_out',
+      'damaged',
+      'lost',
+      'repair',
+      'binding_required',
+      'adjustment'
+    ];
+
+    if(!copyId||!allowedTypes.includes(movementType))
+      return fail('Valid copy ID and movement type are required.');
+
+    const copy=await env.DB.prepare(`
+      SELECT
+        bc.id,bc.book_id,bc.status,bc.condition,
+        bc.stock_type,bc.rack_id,
+        b.library_id,b.price
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      WHERE bc.id=?
+    `).bind(copyId).first();
+
+    if(!copy)return fail('Book copy not found.',404);
+
+    if(!assertLibrary(user,copy.library_id))
+      return fail('You cannot change stock in another library.',403);
+
+    if(copy.status==='issued')
+      return fail('Issued books cannot be changed. Return the book first.',409);
+
+    const newStatus={
+      stock_in:'available',
+      stock_out:'withdrawn',
+      damaged:'damaged',
+      lost:'lost',
+      repair:'repair',
+      binding_required:'binding_required'
+    };
+
+    let status=newStatus[movementType]||String(d.status||'');
+    let condition=String(d.condition_after||copy.condition||'Good');
+
+    if(movementType==='adjustment'){
+      const allowedStatuses=[
+        'available','damaged','lost','repair',
+        'binding_required','withdrawn'
+      ];
+      if(!allowedStatuses.includes(status))
+        return fail('Invalid adjustment status.');
+    }
+
+    if(movementType==='damaged')condition='Damaged';
+    if(movementType==='lost')condition='Lost';
+    if(movementType==='repair')condition='Repair';
+    if(movementType==='binding_required')condition='Binding Required';
+    if(movementType==='stock_in')condition='Good';
+
+    let rackId=copy.rack_id;
+
+    if(d.rack_id!==undefined){
+      rackId=d.rack_id===null||d.rack_id===''?null:Number(d.rack_id);
+
+      if(rackId!==null){
+        if(!Number.isInteger(rackId)||rackId<=0)
+          return fail('Invalid rack ID.');
+
+        const rack=await env.DB.prepare(
+          'SELECT id,library_id FROM racks WHERE id=?'
+        ).bind(rackId).first();
+
+        if(!rack||Number(rack.library_id)!==Number(copy.library_id))
+          return fail('Rack must belong to the same library.');
+      }
+    }
+
+    const note=String(d.reference_note||'').slice(0,500);
+    const quantity=1;
+
+    try{
+      await env.DB.batch([
+        env.DB.prepare(`
+          UPDATE book_copies
+          SET status=?,condition=?,rack_id=?
+          WHERE id=?
+        `).bind(status,condition,rackId,copyId),
+
+        env.DB.prepare(`
+          INSERT INTO inventory_movements
+          (library_id,book_id,copy_id,rack_id,movement_type,
+           quantity,condition_before,condition_after,reference_note,user_id)
+          VALUES(?,?,?,?,?,?,?,?,?,?)
+        `).bind(
+          copy.library_id,
+          copy.book_id,
+          copyId,
+          rackId,
+          movementType,
+          quantity,
+          copy.condition||'',
+          condition,
+          note,
+          user.id
+        )
+      ]);
+
+      await audit(
+        env,user,'inventory_'+movementType,
+        'book_copies',copyId,
+        `status=${copy.status} -> ${status}; condition=${condition}; ${note}`
+      );
+
+      return json({
+        ok:true,
+        copy_id:copyId,
+        previous_status:copy.status,
+        status,
+        condition,
+        rack_id:rackId
+      });
+    }catch(e){
+      console.error('INVENTORY MOVEMENT ERROR:',e);
+      return fail('Could not update inventory. Please check the record.',500);
+    }
+  }
   if(path==='reports'&&method==='GET'){
     const sc=scopeSql(user,'l');const [bookCount,copyCount,memberCount,activeLoans,overdue,fines,categoryRows,libraryRows,inventoryRows]=await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) n FROM books b WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
