@@ -766,7 +766,53 @@ const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])r
   if(method==='POST'){
     const d=await bodyJson(request);if(!d)return fail('Invalid request.');const row={};for(const f of meta.fields)if(Object.prototype.hasOwnProperty.call(d,f))row[f]=d[f]=== ''?null:d[f];
     if(!isAdmin(user)){if(!meta.scoped)return fail('Forbidden.',403);row.library_id=user.library_id;if(d.library_id&&Number(d.library_id)!==Number(user.library_id))return fail('You cannot add records to another library.',403);}
-    if(['books','members','wings','racks'].includes(table)&&!row.library_id)return fail('Library is required.');if(table==='categories'&&!row.name)return fail('Category name is required.');if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
+    if(['books','members','wings','racks'].includes(table)&&!row.library_id)return fail('Library is required.');// RACK VALIDATION AND AUTO CODE
+if(table==='racks'){
+  if(!row.name || !String(row.name).trim())
+    return fail('Rack name is required.');
+
+  if(!row.library_id)
+    return fail('Library is required.');
+
+  const library=await env.DB.prepare(
+    'SELECT id FROM libraries WHERE id=? AND active=1'
+  ).bind(Number(row.library_id)).first();
+
+  if(!library)
+    return fail('Please select a valid active library.');
+
+  if(row.wing_id){
+    const wing=await env.DB.prepare(
+      'SELECT id FROM wings WHERE id=? AND library_id=?'
+    ).bind(Number(row.wing_id),Number(row.library_id)).first();
+
+    if(!wing)
+      return fail('Selected wing does not belong to this library.');
+  } else {
+    row.wing_id=null;
+  }
+
+  if(!row.code || !String(row.code).trim()){
+    const next=await env.DB.prepare(`
+      SELECT COALESCE(
+        MAX(CAST(SUBSTR(code,6) AS INTEGER)),0
+      )+1 AS next_no
+      FROM racks
+      WHERE code GLOB 'RACK-[0-9]*'
+    `).first();
+
+    row.code='RACK-'+String(next?.next_no||1).padStart(3,'0');
+  } else {
+    row.code=String(row.code).trim().toUpperCase();
+  }
+
+  const duplicate=await env.DB.prepare(
+    'SELECT id FROM racks WHERE code=?'
+  ).bind(row.code).first();
+
+  if(duplicate)
+    return fail('This Rack Code already exists. Please use another code.',409);
+}if(table==='categories'&&!row.name)return fail('Category name is required.');if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
     if(table==='books'&&!row.title)return fail('Book title is required.');if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().slice(-8)}`;row.member_type=row.member_type||'Student';}
     const keys=Object.keys(row);if(!keys.length)return fail('No valid fields provided.');const placeholders=keys.map(()=>'?').join(',');try{const result=await env.DB.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`).bind(...keys.map(k=>row[k])).run();const newId=result.meta.last_row_id;
       if(table==='books'){const count=Math.max(1,Math.min(500,Number(d.copy_count)||1));const prefix=`${String(row.tag_id||row.ser_no||'AQK').replace(/[^A-Za-z0-9-]/g,'').slice(0,24)}-${newId}`;const condition=d.condition||'New';const copyStatus=condition==='Lost'?'lost':condition==='Damaged'?'damaged':condition==='Repair'?'repair':'available';const statements=[];for(let i=1;i<=count;i++)statements.push(env.DB.prepare('INSERT INTO book_copies(book_id,copy_code,status,condition,stock_type) VALUES(?,?,?,?,?)').bind(newId,`${prefix}-C${String(i).padStart(3,'0')}`,copyStatus,condition,d.stock_type||'New'));await env.DB.batch(statements);}
@@ -782,6 +828,40 @@ const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])r
   ).bind(id).first();
 
   if(!current)return fail('Record not found.',404);
+    // RACK EDIT VALIDATION
+if(table==='racks'){
+  const newLibraryId=Number(d.library_id||current.library_id);
+  const newWingId=d.wing_id===undefined
+    ? current.wing_id
+    : (d.wing_id===''||d.wing_id===null ? null : Number(d.wing_id));
+
+  const library=await env.DB.prepare(
+    'SELECT id FROM libraries WHERE id=? AND active=1'
+  ).bind(newLibraryId).first();
+
+  if(!library)
+    return fail('Please select a valid active library.');
+
+  if(newWingId){
+    const wing=await env.DB.prepare(
+      'SELECT id FROM wings WHERE id=? AND library_id=?'
+    ).bind(newWingId,newLibraryId).first();
+
+    if(!wing)
+      return fail('Selected wing does not belong to this library.');
+  }
+
+  if(d.code){
+    const duplicate=await env.DB.prepare(
+      'SELECT id FROM racks WHERE code=? AND id!=?'
+    ).bind(String(d.code).trim().toUpperCase(),id).first();
+
+    if(duplicate)
+      return fail('This Rack Code is already used by another rack.',409);
+  }
+
+  if(d.code) d.code=String(d.code).trim().toUpperCase();
+}
   // Prevent moving a book while any of its copies are issued
   if(
     table==='books' &&
@@ -848,6 +928,56 @@ const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])r
 }
 
 if(method==='DELETE'&&id){
+  const current=await env.DB.prepare(
+    `SELECT * FROM ${table} WHERE id=?`
+  ).bind(id).first();
+
+  if(!current)return fail('Record not found.',404);
+
+  if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))
+    return fail('You cannot delete records outside your assigned library.',403);
+
+  // PROTECT RACKS CONTAINING INVENTORY OR HISTORY
+  if(table==='racks'){
+    const copies=await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM book_copies
+      WHERE rack_id=?
+    `).bind(id).first();
+
+    const books=await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM books
+      WHERE rack_id=?
+    `).bind(id).first();
+
+    const movements=await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM inventory_movements
+      WHERE rack_id=?
+    `).bind(id).first();
+
+    const total=
+      Number(copies?.total||0)+
+      Number(books?.total||0)+
+      Number(movements?.total||0);
+
+    if(total>0){
+      return fail(
+        'This rack cannot be deleted because it contains book stock or inventory history. Move the books to another rack first.',
+        409
+      );
+    }
+  }
+
+  await env.DB.prepare(
+    `DELETE FROM ${table} WHERE id=?`
+  ).bind(id).run();
+
+  await audit(env,user,'delete',table,id,'');
+
+  return json({ok:true});
+}
   const current=await env.DB.prepare(
     `SELECT * FROM ${table} WHERE id=?`
   ).bind(id).first();
