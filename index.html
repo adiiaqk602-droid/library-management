@@ -322,6 +322,27 @@
     <label>Rack code
       <input name="code">
     </label>
+    <label>Rack code
+  <input name="code">
+</label>
+
+<!-- یہاں نیا کوڈ پیسٹ کریں -->
+<label>Rack Number
+  <input name="rack_number">
+</label>
+<label>Shelf Number
+  <input name="shelf_number">
+</label>
+<label>Rack Location Code
+  <input name="location_code">
+</label>
+<label>Minimum Stock Alert
+  <input name="minimum_stock" type="number" min="0" value="0">
+</label>
+
+<label>Library
+  <select name="library_id" id="rackLibrary" required></select>
+</label>
     <label>Library
       <select name="library_id" id="rackLibrary" required></select>
     </label>
@@ -347,10 +368,44 @@
           <th>Wing</th>
         </tr>
       </thead>
+      <th>Rack Number</th>
+<th>Shelf Number</th>
+<th>Location Code</th>
+<th>Minimum Stock</th>
       <tbody id="rackRows"></tbody>
     </table>
   </div>
+<h3>Rack-Wise Book List</h3>
 
+<div class="formGrid">
+  <label>Select Rack
+    <select id="rackBooksSelect">
+      <option value="">Choose Rack</option>
+    </select>
+  </label>
+  <button type="button" id="loadRackBooks">Show Rack Books</button>
+</div>
+
+<div class="stats" id="rackBooksStats"></div>
+
+<div class="tableWrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Copy ID</th>
+        <th>Book</th>
+        <th>Rack Number</th>
+        <th>Shelf Number</th>
+        <th>Stock Type</th>
+        <th>Condition</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="rackBooksRows">
+      <tr><td colspan="7">Select a rack to view books.</td></tr>
+    </tbody>
+  </table>
+</div>
   <h3>Complete Physical Stock List</h3>
   <div class="tableWrap">
     <table>
