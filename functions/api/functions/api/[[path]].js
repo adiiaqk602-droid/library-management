@@ -970,40 +970,49 @@ if (table === 'racks') {
     }
   }
 
-  if(method==='DELETE'&&id){
-    const current=await env.DB.prepare(
-      `SELECT * FROM ${table} WHERE id=?`
+  
+  if (method === 'DELETE' && id) {
+    const current = await env.DB.prepare(
+      `SELECT * FROM ${table} WHERE id = ?`
     ).bind(id).first();
 
-    if(!current)return fail('Record not found.',404);
+    if (!current) return fail('Record not found.', 404);
 
-    if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))
-      return fail('You cannot delete records outside your assigned library.',403);if (table === 'categories') {
-  const child = await env.DB.prepare(
-    'SELECT id FROM categories WHERE parent_id = ? LIMIT 1'
-  ).bind(id).first();
+    if (
+      !isAdmin(user) &&
+      (!meta.scoped || Number(current.library_id) !== Number(user.library_id))
+    ) {
+      return fail('You cannot delete records outside your assigned library.', 403);
+    }
 
-  if (child) {
-    return fail('Cannot delete this category. It has subcategories.', 409);
-  }
+    // Protect categories from deletion
+    if (table === 'categories') {
+      const child = await env.DB.prepare(
+        'SELECT id FROM categories WHERE parent_id = ? LIMIT 1'
+      ).bind(id).first();
 
-  const used = await env.DB.prepare(
-    'SELECT id FROM books WHERE category_id = ? LIMIT 1'
-  ).bind(id).first();
+      if (child) {
+        return fail('Cannot delete this category. It has subcategories.', 409);
+      }
 
-  if (used) {
-    return fail('Cannot delete this category. Books are linked to it.', 409);
-  }
+      const used = await env.DB.prepare(
+        'SELECT id FROM books WHERE category_id = ? LIMIT 1'
+      ).bind(id).first();
 
-  const ebookUsed = await env.DB.prepare(
-    'SELECT id FROM ebooks WHERE category_id = ? LIMIT 1'
-  ).bind(id).first();
+      if (used) {
+        return fail('Cannot delete this category. Books are linked to it.', 409);
+      }
 
-  if (ebookUsed) {
-    return fail('Cannot delete this category. E-Books are linked to it.', 409);
-  }
-}
-    // Prevent deleting a rack that contains books
+      const ebookUsed = await env.DB.prepare(
+        'SELECT id FROM ebooks WHERE category_id = ? LIMIT 1'
+      ).bind(id).first();
+
+      if (ebookUsed) {
+        return fail('Cannot delete this category. E-Books are linked to it.', 409);
+      }
+    }
+
+    // Protect racks containing books
     if (table === 'racks') {
       const linkedBook = await env.DB.prepare(
         'SELECT id FROM books WHERE rack_id = ? LIMIT 1'
@@ -1016,28 +1025,37 @@ if (table === 'racks') {
         );
       }
     }
+
     try {
-      if(table==='books'){
+      if (table === 'books') {
         await recordBookHistory(
-          env,user,current,'delete',current,null
+          env, user, current, 'delete', current, null
         );
       }
 
       await env.DB.prepare(
-        `DELETE FROM ${table} WHERE id=?`
+        `DELETE FROM ${table} WHERE id = ?`
       ).bind(id).run();
 
-      await audit(env,user,'delete',table,id,'');
-      return json({ok:true});
+      await audit(env, user, 'delete', table, id, '');
+      return json({ ok: true });
 
-    } catch(e) {
-      return fail('Could not delete record.',409);
+    } catch (e) {
+      return fail('Could not delete record.', 409);
     }
   }
-
-  return fail('Method not allowed.',405);
+return fail('Method not allowed.', 405);
 }
+
 export async function onRequest(context){
+  try{
+    return await handle(context.request,context.env);
+  }catch(e){
+    return json({
+      error:'Server error. Check D1 migration and Cloudflare function logs.'
+    },500);
+  }
+}
   try{
     return await handle(context.request,context.env);
   }catch(e){
