@@ -941,35 +941,41 @@ if (table === 'racks') {
     }
   }
 
-  d.parent_id = parentId;
-}const keys=meta.fields.filter(f=>Object.prototype.hasOwnProperty.call(d,f));
-    if(!keys.length)return fail('No editable fields provided.');
+     d.parent_id = parentId;
+    }
 
-    const vals=keys.map(k=>d[k]===''?null:d[k]);
+    const keys = meta.fields.filter(f =>
+      Object.prototype.hasOwnProperty.call(d, f)
+    );
+
+    if (!keys.length) {
+      return fail('No editable fields provided.');
+    }
+
+    const vals = keys.map(k => d[k] === '' ? null : d[k]);
 
     try {
       await env.DB.prepare(
-        `UPDATE ${table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=?`
-      ).bind(...vals,id).run();
+        `UPDATE ${table} SET ${keys.map(k => `${k}=?`).join(',')} WHERE id=?`
+      ).bind(...vals, id).run();
 
-      if(table==='books'){
-        const updatedBook=await env.DB.prepare(
+      if (table === 'books') {
+        const updatedBook = await env.DB.prepare(
           'SELECT * FROM books WHERE id=?'
         ).bind(id).first();
 
         await recordBookHistory(
-          env,user,updatedBook,'update',current,updatedBook
+          env, user, updatedBook, 'update', current, updatedBook
         );
       }
 
-      await audit(env,user,'update',table,id,'');
-      return json({ok:true});
+      await audit(env, user, 'update', table, id, '');
+      return json({ ok: true });
 
-    } catch(e) {
-      return fail('Could not update record.',409);
+    } catch (e) {
+      return fail('Could not update record.', 409);
     }
   }
-
   
   if (method === 'DELETE' && id) {
     const current = await env.DB.prepare(
