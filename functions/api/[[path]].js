@@ -317,6 +317,250 @@ async function handle(request,env){
       return fail('Could not update inventory. Please check the record.',500);
     }
   }
+    // PHYSICAL STOCK VERIFICATION: list verification sessions
+  if(path==='inventory/verifications'&&method==='GET'){
+    const rows=await env.DB.prepare(`
+      SELECT
+        v.*,
+        lib.name AS library_name,
+        u.full_name AS created_by_name,
+        COUNT(i.id) AS total_copies,
+        SUM(CASE WHEN i.found=1 THEN 1 ELSE 0 END) AS found_copies,
+        SUM(CASE WHEN i.found=0 THEN 1 ELSE 0 END) AS missing_copies
+      FROM stock_verifications v
+      JOIN libraries lib ON lib.id=v.library_id
+      LEFT JOIN users u ON u.id=v.created_by
+      LEFT JOIN stock_verification_items i ON i.verification_id=v.id
+      WHERE 1=1 ${isAdmin(user)?'':' AND v.library_id=?'}
+      GROUP BY v.id
+      ORDER BY v.created_at DESC
+      LIMIT 500
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+    return json({data:rows.results||[]});
+  }
+
+  // START A PHYSICAL STOCK VERIFICATION
+  if(path==='inventory/verification'&&method==='POST'){
+    const d=await bodyJson(request);
+    if(!d)return fail('Invalid request.');
+
+    const libraryId=isAdmin(user)
+      ? Number(d.library_id)
+      : Number(user.library_id);
+
+    if(!assertLibrary(user,libraryId))
+      return fail('You cannot verify another library.',403);
+
+    const library=await env.DB.prepare(
+      'SELECT id FROM libraries WHERE id=? AND active=1'
+    ).bind(libraryId).first();
+
+    if(!library)return fail('Active library not found.');
+
+    try{
+      const result=await env.DB.prepare(`
+        INSERT INTO stock_verifications
+        (library_id,verification_date,notes,created_by)
+        VALUES(?,?,?,?)
+      `).bind(
+        libraryId,
+        String(d.verification_date||new Date().toISOString().slice(0,10)),
+        String(d.notes||'').slice(0,500),
+        user.id
+      ).run();
+
+      const verificationId=result.meta.last_row_id;
+
+      await env.DB.prepare(`
+        INSERT INTO stock_verification_items
+        (verification_id,copy_id,expected_status,actual_status,found,checked_by)
+        SELECT ?,bc.id,bc.status,bc.status,1,?
+        FROM book_copies bc
+        JOIN books b ON b.id=bc.book_id
+        WHERE b.library_id=?
+      `).bind(verificationId,user.id,libraryId).run();
+
+      await audit(
+        env,user,'create','stock_verifications',
+        verificationId,`library=${libraryId}`
+      );
+
+      return json({ok:true,id:verificationId},201);
+    }catch(e){
+      console.error('VERIFICATION START ERROR:',e);
+      return fail('Could not start stock verification.',500);
+    }
+  }
+
+  // CHECK ONE COPY DURING VERIFICATION
+  if(path==='inventory/verification/check'&&method==='POST'){
+    const d=await bodyJson(request);
+    if(!d)return fail('Invalid request.');
+
+    const verificationId=Number(d.verification_id);
+    const copyId=Number(d.copy_id);
+    const found=d.found===false||Number(d.found)===0?0:1;
+
+    if(!verificationId||!copyId)
+      return fail('Verification ID and Copy ID are required.');
+
+    const item=await env.DB.prepare(`
+      SELECT
+        i.id,i.expected_status,
+        v.library_id,v.status AS verification_status,
+        bc.book_id,bc.status AS copy_status,bc.condition,
+        b.library_id AS book_library_id
+      FROM stock_verification_items i
+      JOIN stock_verifications v ON v.id=i.verification_id
+      JOIN book_copies bc ON bc.id=i.copy_id
+      JOIN books b ON b.id=bc.book_id
+      WHERE i.verification_id=? AND i.copy_id=?
+    `).bind(verificationId,copyId).first();
+
+    if(!item)return fail('Verification item not found.',404);
+    if(item.verification_status!=='open')
+      return fail('This verification is already completed.',409);
+    if(!assertLibrary(user,item.library_id))
+      return fail('You cannot verify another library.',403);
+    if(Number(item.book_library_id)!==Number(item.library_id))
+      return fail('Library record mismatch.',409);
+
+    const actualStatus=found
+      ? String(d.actual_status||item.copy_status)
+      : 'missing';
+
+    if(found&&![
+      'available','issued','damaged','lost','repair',
+      'binding_required','withdrawn'
+    ].includes(actualStatus)){
+      return fail('Invalid actual stock status.');
+    }
+
+    try{
+      await env.DB.prepare(`
+        UPDATE stock_verification_items
+        SET found=?,actual_status=?,notes=?,checked_by=?,
+            checked_at=datetime('now')
+        WHERE verification_id=? AND copy_id=?
+      `).bind(
+        found,
+        actualStatus,
+        String(d.notes||'').slice(0,500),
+        user.id,
+        verificationId,
+        copyId
+      ).run();
+
+      if(!found){
+        await env.DB.batch([
+          env.DB.prepare(`
+            UPDATE book_copies
+            SET status='lost',condition='Lost'
+            WHERE id=? AND status!='issued'
+          `).bind(copyId),
+
+          env.DB.prepare(`
+            INSERT INTO inventory_movements
+            (library_id,book_id,copy_id,rack_id,movement_type,
+             quantity,condition_before,condition_after,reference_note,user_id)
+            SELECT b.library_id,bc.book_id,bc.id,bc.rack_id,
+                   'missing',1,bc.condition,'Lost',
+                   'Marked missing during physical verification',?
+            FROM book_copies bc
+            JOIN books b ON b.id=bc.book_id
+            WHERE bc.id=? AND bc.status!='issued'
+          `).bind(user.id,copyId)
+        ]);
+      }
+
+      await audit(
+        env,user,'verify_copy','stock_verification_items',
+        copyId,`verification=${verificationId}; found=${found}`
+      );
+
+      return json({ok:true,copy_id:copyId,found});
+    }catch(e){
+      console.error('VERIFICATION CHECK ERROR:',e);
+      return fail('Could not save verification result.',500);
+    }
+  }
+
+  // COMPLETE A PHYSICAL STOCK VERIFICATION
+  if(path==='inventory/verification/complete'&&method==='POST'){
+    const d=await bodyJson(request);
+    if(!d||!Number(d.verification_id))
+      return fail('Verification ID is required.');
+
+    const verificationId=Number(d.verification_id);
+
+    const verification=await env.DB.prepare(
+      'SELECT * FROM stock_verifications WHERE id=?'
+    ).bind(verificationId).first();
+
+    if(!verification)return fail('Verification not found.',404);
+    if(!assertLibrary(user,verification.library_id))
+      return fail('You cannot complete another library verification.',403);
+    if(verification.status!=='open')
+      return fail('Verification is already completed.',409);
+
+    const unchecked=await env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM stock_verification_items
+      WHERE verification_id=? AND checked_at IS NULL
+    `).bind(verificationId).first();
+
+    if(Number(unchecked?.total||0)>0)
+      return fail('Please check every copy before completing verification.',409);
+
+    await env.DB.prepare(`
+      UPDATE stock_verifications
+      SET status='completed',completed_at=datetime('now')
+      WHERE id=?
+    `).bind(verificationId).run();
+
+    await audit(
+      env,user,'complete','stock_verifications',
+      verificationId,'Physical stock verification completed'
+    );
+
+    return json({ok:true});
+  }
+
+  // MISSING BOOKS REPORT
+  if(path==='inventory/missing'&&method==='GET'){
+    const rows=await env.DB.prepare(`
+      SELECT
+        bc.id AS copy_id,
+        bc.copy_code,
+        bc.status,
+        bc.condition,
+        b.id AS book_id,
+        b.title,
+        b.author,
+        b.ser_no,
+        b.accession_no,
+        b.price,
+        b.library_id,
+        lib.name AS library_name,
+        r.name AS rack_name,
+        r.location_code,
+        m.created_at AS marked_missing_at,
+        m.reference_note
+      FROM inventory_movements m
+      JOIN book_copies bc ON bc.id=m.copy_id
+      JOIN books b ON b.id=bc.book_id
+      JOIN libraries lib ON lib.id=b.library_id
+      LEFT JOIN racks r ON r.id=bc.rack_id
+      WHERE m.movement_type='missing'
+        AND bc.status='lost'
+        ${isAdmin(user)?'':' AND b.library_id=?'}
+      ORDER BY m.created_at DESC
+      LIMIT 1000
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+    return json({data:rows.results||[]});
+  }
   if(path==='reports'&&method==='GET'){
     const sc=scopeSql(user,'l');const [bookCount,copyCount,memberCount,activeLoans,overdue,fines,categoryRows,libraryRows,inventoryRows]=await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) n FROM books b WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
