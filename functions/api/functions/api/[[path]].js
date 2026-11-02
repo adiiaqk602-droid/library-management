@@ -656,9 +656,10 @@ async function handle(request,env){
     byStockType:stockTypeRows.results||[],
     byLibraryValue:libraryValueRows.results||[],
     byRack:rackRows.results||[],
-    monthlyIssuesReturns:monthlyRows.results||[]
+        monthlyIssuesReturns:monthlyRows.results||[]
   });
 }
+
   if(path==='issue'&&method==='POST'){
     const d=await bodyJson(request);if(!d)return fail('Invalid request.');const member=await env.DB.prepare('SELECT id,library_id,active FROM members WHERE id=?').bind(Number(d.member_id)).first();const copy=await env.DB.prepare('SELECT c.id,c.status,b.library_id,b.price FROM book_copies c JOIN books b ON b.id=c.book_id WHERE c.id=?').bind(Number(d.copy_id)).first();
     if(!member||!copy||!member.active)return fail('Member or book copy not found/active.');if(Number(member.library_id)!==Number(copy.library_id))return fail('Member and book copy must belong to the same library.');if(!assertLibrary(user,member.library_id))return fail('You cannot issue books from another library.',403);if(copy.status!=='available')return fail('This copy is not available.',409);
