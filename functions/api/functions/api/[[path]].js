@@ -705,7 +705,9 @@ async function handle(request,env){
     ).all();
 
     return json({ data: rows.results || [] });
-  }const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
+  }
+  
+  const match=path.match(/^([a-z_]+)(?:\/(\d+))?$/);if(!match||!TABLES[match[1]])return fail('API route not found.',404);const table=match[1],id=match[2]?Number(match[2]):null,meta=TABLES[table];
   if(method==='GET'){
     const sc=scopeSql(user);let sql=`SELECT * FROM ${table} WHERE 1=1${sc.sql}`;const binds=[...sc.binds];if(url.searchParams.get('q')){const q=`%${url.searchParams.get('q').slice(0,100)}%`;const field=table==='books'?'title':table==='members'?'full_name':'name';sql+=` AND ${field} LIKE ?`;binds.push(q);}sql+=' ORDER BY id DESC LIMIT 1000';const rows=await env.DB.prepare(sql).bind(...binds).all();return json({data:rows.results||[]});
   }
@@ -734,7 +736,8 @@ async function handle(request,env){
       return fail('Parent category not found in this library.');
     }
   }
-}if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
+}
+    if(table==='categories'&&!row.code){const prefix=String(row.name||'CAT').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3)||'CAT';const n=await env.DB.prepare('SELECT COUNT(*) n FROM categories WHERE code LIKE ?').bind(`${prefix}-%`).first();row.code=`${prefix}-${String(Number(n.n||0)+1).padStart(3,'0')}`;}
     if(table==='books'&&!row.title)return fail('Book title is required.');
 if (table === 'books') {
   if (!row.title || !String(row.title).trim()) {
@@ -832,9 +835,11 @@ if (table === 'racks') {
     null,
     savedBook
   );
-}if(table==='books'){const count=Math.max(1,Math.min(500,Number(d.copy_count)||1));const prefix=`${String(row.tag_id||row.ser_no||'AQK').replace(/[^A-Za-z0-9-]/g,'').slice(0,24)}-${newId}`;const condition=d.condition||'New';const copyStatus=condition==='Lost'?'lost':condition==='Damaged'?'damaged':condition==='Repair'?'repair':'available';const statements=[];for(let i=1;i<=count;i++)statements.push(env.DB.prepare('INSERT INTO book_copies(book_id,copy_code,status,condition,stock_type) VALUES(?,?,?,?,?)').bind(newId,`${prefix}-C${String(i).padStart(3,'0')}`,copyStatus,condition,d.stock_type||'New'));await env.DB.batch(statements);}
+}
+                                                                                                                                            if(table==='books'){const count=Math.max(1,Math.min(500,Number(d.copy_count)||1));const prefix=`${String(row.tag_id||row.ser_no||'AQK').replace(/[^A-Za-z0-9-]/g,'').slice(0,24)}-${newId}`;const condition=d.condition||'New';const copyStatus=condition==='Lost'?'lost':condition==='Damaged'?'damaged':condition==='Repair'?'repair':'available';const statements=[];for(let i=1;i<=count;i++)statements.push(env.DB.prepare('INSERT INTO book_copies(book_id,copy_code,status,condition,stock_type) VALUES(?,?,?,?,?)').bind(newId,`${prefix}-C${String(i).padStart(3,'0')}`,copyStatus,condition,d.stock_type||'New'));await env.DB.batch(statements);}
       await audit(env,user,'create',table,newId,'');return json({ok:true,id:newId,row},201);
-    }catch(e){return fail('Could not save record. Check required fields and unique codes.',409);}
+    }
+    catch(e){return fail('Could not save record. Check required fields and unique codes.',409);}
   }
   
   if(method==='PATCH'&&id){
