@@ -773,7 +773,50 @@ if (table === 'books') {
     }
   }
 }
-if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().slice(-8)}`;row.member_type=row.member_type||'Student';}
+if (table === 'members') {
+  row.member_no = row.member_no || `AQK-${Date.now().toString().slice(-8)}`;
+  row.member_type = row.member_type || 'Student';
+}
+
+if (table === 'racks') {
+  row.name = String(row.name || '').trim();
+
+  if (!row.name) return fail('Rack name is required.');
+  if (!row.library_id) return fail('Library is required.');
+
+  const library = await env.DB.prepare(
+    'SELECT id FROM libraries WHERE id = ? AND active = 1'
+  ).bind(Number(row.library_id)).first();
+
+  if (!library) return fail('Active library not found.');
+  if (row.wing_id) {
+    const wing = await env.DB.prepare(
+      'SELECT id FROM wings WHERE id = ? AND library_id = ?'
+    ).bind(Number(row.wing_id), Number(row.library_id)).first();
+
+    if (!wing) return fail('Selected wing does not belong to this library.');
+  } else {
+    row.wing_id = null;
+  }
+
+  if (!row.code) {
+    const result = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM racks WHERE code LIKE 'RACK-%'"
+    ).first();
+
+    row.code = `RACK-${String(Number(result?.n || 0) + 1).padStart(3, '0')}`;
+  } else {
+    row.code = String(row.code).trim().toUpperCase();
+  }
+
+  const duplicate = await env.DB.prepare(
+    'SELECT id FROM racks WHERE code = ? AND library_id = ?'
+  ).bind(row.code, Number(row.library_id)).first();
+
+  if (duplicate) return fail('This rack code already exists in this library.', 409);
+}
+  
+  
     const keys=Object.keys(row);if(!keys.length)return fail('No valid fields provided.');const placeholders=keys.map(()=>'?').join(',');try{const result=await env.DB.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`).bind(...keys.map(k=>row[k])).run();const newId=result.meta.last_row_id;
       if (table === 'books') {
   const savedBook = await env.DB.prepare(
@@ -808,6 +851,63 @@ if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().
 
     if(!isAdmin(user)&&Object.prototype.hasOwnProperty.call(d,'library_id')&&Number(d.library_id)!==Number(user.library_id))
       return fail('You cannot move records to another library.',403);
+        // Rack Edit Validation
+    if (table === 'racks') {
+      const rackName = String(d.name ?? current.name ?? '').trim();
+      const rackCode = String(d.code ?? current.code ?? '').trim().toUpperCase();
+      const libraryId = Number(d.library_id ?? current.library_id);
+      const wingValue = Object.prototype.hasOwnProperty.call(d, 'wing_id')
+        ? d.wing_id
+        : current.wing_id;
+      const wingId = wingValue ? Number(wingValue) : null;
+
+      if (!rackName) {
+        return fail('Rack name is required.');
+      }
+
+      if (!rackCode) {
+        return fail('Rack code is required.');
+      }
+
+      if (!libraryId) {
+        return fail('Library is required.');
+      }
+
+      const library = await env.DB.prepare(
+        'SELECT id FROM libraries WHERE id = ? AND active = 1'
+      ).bind(libraryId).first();
+
+      if (!library) {
+        return fail('Active library not found.');
+      }
+
+      if (!isAdmin(user) && libraryId !== Number(user.library_id)) {
+        return fail('You cannot move this rack to another library.', 403);
+      }
+
+      if (wingId !== null) {
+        const wing = await env.DB.prepare(
+          'SELECT id FROM wings WHERE id = ? AND library_id = ?'
+        ).bind(wingId, libraryId).first();
+
+        if (!wing) {
+          return fail('Selected wing does not belong to this library.');
+        }
+      }
+
+      const duplicate = await env.DB.prepare(
+        'SELECT id FROM racks WHERE code = ? AND library_id = ? AND id != ?'
+      ).bind(rackCode, libraryId, id).first();
+
+      if (duplicate) {
+        return fail('This rack code already exists in this library.', 409);
+      }
+
+      d.name = rackName;
+      d.code = rackCode;
+      d.library_id = libraryId;
+      d.wing_id = wingId;
+    }
 
     if (table === 'categories' && Object.prototype.hasOwnProperty.call(d, 'parent_id')) {
   const parentId = d.parent_id ? Number(d.parent_id) : null;
@@ -902,7 +1002,19 @@ if(table==='members'){row.member_no=row.member_no||`AQK-${Date.now().toString().
     return fail('Cannot delete this category. E-Books are linked to it.', 409);
   }
 }
+    // Prevent deleting a rack that contains books
+    if (table === 'racks') {
+      const linkedBook = await env.DB.prepare(
+        'SELECT id FROM books WHERE rack_id = ? LIMIT 1'
+      ).bind(id).first();
 
+      if (linkedBook) {
+        return fail(
+          'Cannot delete this rack. Books are linked to it. Move the books to another rack first.',
+          409
+        );
+      }
+    }
     try {
       if(table==='books'){
         await recordBookHistory(
