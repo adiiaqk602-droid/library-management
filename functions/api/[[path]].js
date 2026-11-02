@@ -561,6 +561,122 @@ async function handle(request,env){
 
     return json({data:rows.results||[]});
   }
+    // MINIMUM STOCK ALERTS
+  if(path==='inventory/alerts'&&method==='GET'){
+    const rows=await env.DB.prepare(`
+      SELECT
+        r.id AS rack_id,
+        r.name AS rack_name,
+        r.rack_number,
+        r.location_code,
+        r.minimum_stock,
+        r.library_id,
+        lib.name AS library_name,
+        COUNT(bc.id) AS current_stock,
+        (r.minimum_stock-COUNT(bc.id)) AS shortage
+      FROM racks r
+      JOIN libraries lib ON lib.id=r.library_id
+      LEFT JOIN book_copies bc
+        ON COALESCE(bc.rack_id,
+          (SELECT b.rack_id FROM books b WHERE b.id=bc.book_id)
+        )=r.id
+      WHERE r.minimum_stock>0
+        ${isAdmin(user)?'':' AND r.library_id=?'}
+      GROUP BY r.id
+      HAVING COUNT(bc.id)<r.minimum_stock
+      ORDER BY shortage DESC,r.name
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+    return json({data:rows.results||[]});
+  }
+
+  // INVENTORY AUDIT REPORT
+  if(path==='inventory/audit'&&method==='GET'){
+    const from=url.searchParams.get('from');
+    const to=url.searchParams.get('to');
+
+    let conditions='WHERE 1=1';
+    const binds=[];
+
+    if(!isAdmin(user)){
+      conditions+=' AND m.library_id=?';
+      binds.push(user.library_id);
+    }
+
+    if(from){
+      conditions+=' AND date(m.created_at)>=date(?)';
+      binds.push(from);
+    }
+
+    if(to){
+      conditions+=' AND date(m.created_at)<=date(?)';
+      binds.push(to);
+    }
+
+    const rows=await env.DB.prepare(`
+      SELECT
+        m.*,
+        b.title AS book_title,
+        b.ser_no,
+        bc.copy_code,
+        r.name AS rack_name,
+        lib.name AS library_name,
+        u.full_name AS user_name
+      FROM inventory_movements m
+      LEFT JOIN books b ON b.id=m.book_id
+      LEFT JOIN book_copies bc ON bc.id=m.copy_id
+      LEFT JOIN racks r ON r.id=m.rack_id
+      JOIN libraries lib ON lib.id=m.library_id
+      LEFT JOIN users u ON u.id=m.user_id
+      ${conditions}
+      ORDER BY m.created_at DESC
+      LIMIT 2000
+    `).bind(...binds).all();
+
+    return json({data:rows.results||[]});
+  }
+
+  // STOCK VALUE REPORT
+  if(path==='inventory/value'&&method==='GET'){
+    const libraryFilter=isAdmin(user)?'':' AND b.library_id=?';
+    const binds=isAdmin(user)?[]:[user.library_id];
+
+    const totals=await env.DB.prepare(`
+      SELECT
+        COUNT(bc.id) AS total_copies,
+        COALESCE(SUM(COALESCE(b.price,0)),0) AS total_stock_value,
+        COALESCE(SUM(CASE WHEN bc.status='available'
+          THEN COALESCE(b.price,0) ELSE 0 END),0) AS available_value,
+        COALESCE(SUM(CASE WHEN bc.status='issued'
+          THEN COALESCE(b.price,0) ELSE 0 END),0) AS issued_value,
+        COALESCE(SUM(CASE WHEN bc.status='damaged'
+          THEN COALESCE(b.price,0) ELSE 0 END),0) AS damaged_value,
+        COALESCE(SUM(CASE WHEN bc.status='lost'
+          THEN COALESCE(b.price,0) ELSE 0 END),0) AS lost_value
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      WHERE 1=1 ${libraryFilter}
+    `).bind(...binds).first();
+
+    const byLibrary=await env.DB.prepare(`
+      SELECT
+        lib.id AS library_id,
+        lib.name AS library_name,
+        COUNT(bc.id) AS total_copies,
+        COALESCE(SUM(COALESCE(b.price,0)),0) AS stock_value
+      FROM libraries lib
+      LEFT JOIN books b ON b.library_id=lib.id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      WHERE 1=1 ${isAdmin(user)?'':' AND lib.id=?'}
+      GROUP BY lib.id
+      ORDER BY lib.name
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+    return json({
+      totals:totals||{},
+      byLibrary:byLibrary.results||[]
+    });
+  }
   if(path==='reports'&&method==='GET'){
     const sc=scopeSql(user,'l');const [bookCount,copyCount,memberCount,activeLoans,overdue,fines,categoryRows,libraryRows,inventoryRows]=await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) n FROM books b WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
