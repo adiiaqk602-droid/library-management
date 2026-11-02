@@ -423,7 +423,19 @@ bookForm.addEventListener('submit', async e => {
   } catch (err) {
     message(err.message);
   }
-});  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');submitForm('rackForm','racks','Rack saved.');
+});  submitForm('categoryForm','categories','Category saved.');submitForm('wingForm','wings','Management wing saved.');$('rackForm').addEventListener('submit', function () {
+  const codeInput = this.elements.namedItem('code');
+
+  if (codeInput && !codeInput.value.trim()) {
+    const numbers = state.racks
+      .map(r => Number((r.code || '').match(/^RACK-(\d+)$/i)?.[1] || 0));
+
+    const nextNumber = Math.max(0, ...numbers) + 1;
+
+    codeInput.value = 'RACK-' + String(nextNumber).padStart(3, '0');
+  }
+});
+submitForm('rackForm','racks','Rack saved.');
   $('loadRackBooks').addEventListener('click', async () => {
   const rackId = $('rackBooksSelect').value;
 
