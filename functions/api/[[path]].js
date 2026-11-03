@@ -989,8 +989,8 @@ if(method==='DELETE'&&id){
 
   await audit(env,user,'delete',table,id,'');
 
-  return json({ok:true});
-}
+   return json({ok:true});
+
   return fail('Method not allowed.',405);
 }
 
