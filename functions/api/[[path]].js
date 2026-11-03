@@ -989,11 +989,11 @@ if(method==='DELETE'&&id){
 
   await audit(env,user,'delete',table,id,'');
 
-   return json({ok:true});
-
-  return fail('Method not allowed.',405);
+    return json({ok:true});
 }
 
+return fail('Method not allowed.',405);
+}
 export async function onRequest(context) {
   try {
     return await handle(context.request, context.env);
