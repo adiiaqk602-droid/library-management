@@ -854,3 +854,25 @@ input:focus, select:focus, textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+/* AQK Premium Header */
+header {
+  background: linear-gradient(120deg, #102b55, #164e9b);
+  color: #fff;
+  padding: 18px 24px;
+  border-bottom: 4px solid #d8b24c;
+  box-shadow: 0 5px 18px rgba(16,43,85,.18);
+}
+
+header h1,
+header h2 {
+  color: #fff;
+}
+
+header p {
+  color: #e4ebf6;
+}
+
+header img {
+  object-fit: contain;
+  max-height: 65px;
+}
