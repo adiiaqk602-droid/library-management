@@ -27,3 +27,270 @@
   overflow-x: auto;
   margin-bottom: 20px;
 }
+
+/* =====================================
+   AQK MODERN DASHBOARD REDESIGN
+   Existing AQK system - Feature UI
+===================================== */
+
+:root {
+  --navy: #102b55;
+  --blue: #2563eb;
+  --gold: #d8b24c;
+  --bg: #f3f6fc;
+  --ink: #17263c;
+  --muted: #718096;
+  --line: #e3eaf3;
+}
+
+body {
+  background: #f3f6fc;
+  color: var(--ink);
+}
+
+/* School Header */
+.brand {
+  background: linear-gradient(110deg, #102b55, #164e9b);
+  border-bottom: 4px solid var(--gold);
+  padding: 15px 22px;
+}
+
+.logos h1 {
+  color: #ffffff;
+}
+
+.logos p {
+  color: #dce7f7;
+}
+
+.logos img {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 5px;
+}
+
+/* Main Layout */
+main {
+  max-width: 1600px;
+  margin: 20px auto;
+}
+
+/* App Layout: Sidebar + Content */
+#appPanel {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+#appPanel > .toolbar {
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-radius: 14px;
+}
+
+/* Left Sidebar */
+#appPanel > .tabs {
+  grid-column: 1;
+  grid-row: 2;
+  position: sticky;
+  top: 15px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 7px;
+  background: #102b55;
+  padding: 14px;
+  border-radius: 16px;
+  margin: 0;
+  max-height: calc(100vh - 30px);
+  overflow-y: auto;
+}
+
+.tabs button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #dce7f7;
+  padding: 12px 14px;
+  border-radius: 9px;
+}
+
+.tabs button:hover {
+  background: #244777;
+  color: #ffffff;
+}
+
+.tabs button.active {
+  background: #ffffff;
+  color: #102b55;
+  box-shadow: inset 4px 0 var(--gold);
+}
+
+/* Main Content Area */
+#appPanel > .tab {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 5px 22px #102b5510;
+}
+
+#dashboard h2 {
+  font-size: 26px;
+}
+
+#dashboard h3 {
+  margin-top: 28px;
+}
+
+/* Dashboard Statistics */
+#dashboard .stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+#dashboard .stat {
+  background: #ffffff;
+  border: 1px solid #e4eaf3;
+  border-radius: 14px;
+  padding: 20px;
+  min-height: 105px;
+  box-shadow: 0 4px 15px #102b5509;
+  transition: transform .2s, box-shadow .2s;
+}
+
+#dashboard .stat:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px #102b5518;
+}
+
+#dashboard .stat strong {
+  font-size: 29px;
+  margin-top: 7px;
+  color: #164e9b;
+}
+
+/* Library Cards */
+.libraryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.libCard {
+  background: linear-gradient(135deg, #ffffff, #f3f7ff);
+  border: 1px solid #dce6f5;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 4px 14px #102b5509;
+}
+
+.libCard:hover {
+  border-color: #8aaddd;
+}
+
+/* All Other Panels */
+.panel {
+  border: 1px solid #e4eaf3;
+  border-radius: 15px;
+  box-shadow: 0 5px 20px #102b550c;
+}
+
+h2, h3 {
+  color: #102b55;
+}
+
+/* Buttons */
+button {
+  border-radius: 9px;
+  transition: .2s ease;
+}
+
+button:not(.secondary):hover {
+  background: #123d7d;
+  transform: translateY(-1px);
+}
+
+button.secondary {
+  background: #eaf0fa;
+  color: #102b55;
+}
+
+/* Tables */
+table {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+th {
+  background: #edf3fc;
+  color: #102b55;
+  padding: 13px;
+}
+
+td {
+  padding: 12px;
+}
+
+tbody tr:hover {
+  background: #f4f8ff;
+}
+
+/* Forms */
+input, select, textarea {
+  border-radius: 9px;
+  border-color: #d4deeb;
+  padding: 11px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px #2563eb18;
+}
+
+/* Responsive */
+@media(max-width: 950px) {
+  #appPanel {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+
+  #dashboard .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .libraryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media(max-width: 650px) {
+  #appPanel {
+    display: block;
+  }
+
+  #appPanel > .tabs {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: none;
+    margin-bottom: 15px;
+  }
+
+  .tabs button {
+    width: auto;
+    flex: 1 1 135px;
+    text-align: center;
+  }
+
+  #appPanel > .tab {
+    padding: 15px;
+  }
+
+  #dashboard .stats,
+  .libraryGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
