@@ -106,23 +106,27 @@ async function handle(request,env){
       ORDER BY lib.name,bc.stock_type,bc.status
     `).bind(...binds).all();
 
-    const racks=await env.DB.prepare(`
-      SELECT
-        r.id,r.name,r.code,r.rack_number,r.shelf_number,
-        r.location_code,r.minimum_stock,r.library_id,
-        lib.name AS library_name,
-        COUNT(bc.id) AS current_stock
-      FROM racks r
-      JOIN libraries lib ON lib.id=r.library_id
-      LEFT JOIN books b
-  ON b.rack_id=r.id
-  AND b.library_id=r.library_id
-LEFT JOIN book_copies bc
-  ON bc.book_id=b.id
-      WHERE 1=1 ${isAdmin(user)?'':' AND r.library_id=?'}
-      GROUP BY r.id
-      ORDER BY lib.name,r.name
-    `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+  
+const racks=await env.DB.prepare(`
+  SELECT
+    r.id,
+    r.name,
+    r.code,
+    r.rack_number,
+    r.library_id,
+    lib.name AS library_name,
+    COUNT(DISTINCT bc.id) AS current_stock
+  FROM racks r
+  JOIN libraries lib ON lib.id=r.library_id
+  LEFT JOIN book_copies bc
+    ON bc.rack_id=r.id
+  LEFT JOIN books b
+    ON b.id=bc.book_id
+    AND b.library_id=r.library_id
+  WHERE 1=1 ${isAdmin(user)?'':' AND r.library_id=?'}
+  GROUP BY r.id
+  ORDER BY lib.name,r.name
+`).bind(...(isAdmin(user)?[]:[user.library_id])).all();
 
     return json({
       stock:stock.results||[],
@@ -552,7 +556,6 @@ if(path==='inventory/rack-books'&&method==='GET'){
         b.library_id,
         lib.name AS library_name,
         r.name AS rack_name,
-        r.location_code,
         m.created_at AS marked_missing_at,
         m.reference_note
       FROM inventory_movements m
@@ -576,8 +579,7 @@ if(path==='inventory/rack-books'&&method==='GET'){
         r.id AS rack_id,
         r.name AS rack_name,
         r.rack_number,
-        r.location_code,
-        r.minimum_stock,
+          r.minimum_stock,
         r.library_id,
         lib.name AS library_name,
         COUNT(bc.id) AS current_stock,
