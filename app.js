@@ -99,6 +99,9 @@ function renderLibraryInventory() {
   const issued = copies.filter(c =>
     String(c.status).toLowerCase() === 'issued'
   ).length;
+  const damaged = copies.filter(c =>
+  String(c.status).toLowerCase() === 'damaged'
+).length;
 
   const stockCount = type => copies.filter(c =>
     String(c.stock_type || '').trim().toLowerCase() === type
@@ -111,6 +114,7 @@ function renderLibraryInventory() {
     ['Donate Books', stockCount('donate')],
     ['Available', available],
     ['Issued', issued]
+    ['Damaged', damaged]
   ].map(([label, count]) => `
     <div class="stat">
       <span class="muted">${safe(label)}</span>
@@ -134,6 +138,9 @@ function renderLibraryInventory() {
     const issuedCount = rows.filter(c =>
       String(c.status).toLowerCase() === 'issued'
     ).length;
+    const damagedCount = rows.filter(c =>
+  String(c.status).toLowerCase() === 'damaged'
+).length;
 
     return `
       <tr>
@@ -144,6 +151,7 @@ function renderLibraryInventory() {
         <td>${count('donate')}</td>
         <td>${availableCount}</td>
         <td>${issuedCount}</td>
+        <td>${damagedCount}</td>
       </tr>
     `;
   }).join('') || '<tr><td colspan="7">No inventory found.</td></tr>';
