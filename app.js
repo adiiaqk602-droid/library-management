@@ -260,8 +260,37 @@ console.log('AQK Minimum Stock Alert:', {
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
     $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
     const r=state.report||{stats:{}};const stats=r.stats||{};
-    $('stats').innerHTML=[['Libraries',state.libraries.length],['Book titles',stats.books??state.books.length],['Physical copies',stats.copies??state.copies.length],['Members',stats.members??state.members.length],['Issued',stats.issued??state.loans.filter(l=>l.status==='issued').length],['Overdue',stats.overdue??0],['Outstanding fine',`Rs. ${Number(stats.outstandingFine||0).toFixed(2)}`]].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
-    $('reportStats').innerHTML=$('stats').innerHTML;
+    const lowStockCount = state.books.filter(b => {
+  const available = state.copies.filter(c =>
+    Number(c.book_id) === Number(b.id) &&
+    String(c.status || '').toLowerCase() === 'available'
+  ).length;
+
+  return available > 0 && available <= 5;
+}).length;
+
+const outOfStockCount = state.books.filter(b => {
+  const available = state.copies.filter(c =>
+    Number(c.book_id) === Number(b.id) &&
+    String(c.status || '').toLowerCase() === 'available'
+  ).length;
+
+  return available === 0;
+}).length;
+
+$('stats').innerHTML=[
+  ['Libraries',state.libraries.length],
+  ['Book titles',stats.books??state.books.length],
+  ['Physical copies',stats.copies??state.copies.length],
+  ['Members',stats.members??state.members.length],
+  ['Issued',stats.issued??state.loans.filter(l=>l.status==='issued').length],
+  ['Overdue',stats.overdue??0],
+  ['Outstanding fine',`Rs. ${Number(stats.outstandingFine||0).toFixed(2)}`],
+  ['Low Stock Books',lowStockCount],
+  ['Out of Stock Books',outOfStockCount]
+].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
+
+$('reportStats').innerHTML=$('stats').innerHTML;
 const reportRows = (items, makeRow, cols) =>
   (items || []).length
     ? items.map(makeRow).join('')
