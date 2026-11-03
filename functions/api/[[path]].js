@@ -173,9 +173,6 @@ if(path==='inventory/rack-books'&&method==='GET'){
 return json({data:rows.results||[]});
 }
 
-  return json({data:rows.results||[]});
-}
-
   // INVENTORY MOVEMENT HISTORY
   if(path==='inventory/movements'&&method==='GET'){
     const rows=await env.DB.prepare(`
