@@ -555,3 +555,75 @@ input:focus, select:focus, textarea:focus {
   }
 }
 ```
+```css
+/* AQK PREMIUM DASHBOARD STATISTIC CARDS */
+
+#dashboard .stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 28px;
+}
+
+#dashboard .stat {
+  position: relative;
+  overflow: hidden;
+  min-height: 125px;
+  padding: 20px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff, #edf3fc);
+  box-shadow: 0 7px 20px #102b5512;
+}
+
+#dashboard .stat::after {
+  content: "";
+  position: absolute;
+  width: 85px;
+  height: 85px;
+  right: -22px;
+  top: -22px;
+  border-radius: 50%;
+  background: #2563eb12;
+}
+
+#dashboard .stat strong {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-top: 12px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #164e9b;
+}
+
+#dashboard .stat:nth-child(4n+2) {
+  background: linear-gradient(135deg, #fff8e8, #ffedc5);
+}
+
+#dashboard .stat:nth-child(4n+2) strong {
+  color: #a66a08;
+}
+
+#dashboard .stat:nth-child(4n+3) {
+  background: linear-gradient(135deg, #eafaf2, #d5f3e3);
+}
+
+#dashboard .stat:nth-child(4n+3) strong {
+  color: #16804a;
+}
+
+#dashboard .stat:nth-child(4n) {
+  background: linear-gradient(135deg, #f3edff, #e5dcff);
+}
+
+#dashboard .stat:nth-child(4n) strong {
+  color: #6842a5;
+}
+
+@media(max-width: 650px) {
+  #dashboard .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+```
