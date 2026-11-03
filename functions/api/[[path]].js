@@ -40,6 +40,89 @@ function scopeSql(user,alias=''){if(isAdmin(user))return {sql:'',binds:[]};retur
 function assertLibrary(user, libraryId){return isAdmin(user) ? Number(libraryId)>0 : Number(libraryId)===Number(user.library_id);}
 async function audit(env,user,action,entity,id,details=''){try{await env.DB.prepare('INSERT INTO audit_log(user_id,action,entity,entity_id,details) VALUES(?,?,?,?,?)').bind(user?.id||null,action,entity,String(id??''),String(details).slice(0,1000)).run();}catch{}}
 async function bodyJson(request){try{return await request.json();}catch{return null;}}
+// BACKBLAZE B2 HELPERS
+async function b2Authorize(env){
+  const key= btoa(`${env.B2_KEY_ID}:${env.B2_APPLICATION_KEY}`);
+
+  const response=await fetch(
+    'https://api.backblazeb2.com/b2api/v2/b2_authorize_account',
+    {headers:{Authorization:`Basic ${key}`}}
+  );
+
+  if(!response.ok)throw new Error('Backblaze authorization failed.');
+
+  return await response.json();
+}
+
+async function b2GetBucket(env,auth){
+  const response=await fetch(
+    `${auth.apiUrl}/b2api/v2/b2_list_buckets`,
+    {
+      method:'POST',
+      headers:{
+        Authorization:auth.authorizationToken,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({
+        accountId:auth.accountId,
+        bucketName:env.B2_BUCKET_NAME
+      })
+    }
+  );
+
+  if(!response.ok)throw new Error('Backblaze bucket not found.');
+
+  const data=await response.json();
+  const bucket=data.buckets?.find(
+    b=>b.bucketName===env.B2_BUCKET_NAME
+  );
+
+  if(!bucket)throw new Error('E-Book storage bucket not found.');
+
+  return bucket;
+}
+
+async function b2UploadPdf(env,file,fileKey){
+  const auth=await b2Authorize(env);
+
+  const uploadResponse=await fetch(
+    `${auth.apiUrl}/b2api/v2/b2_get_upload_url`,
+    {
+      method:'POST',
+      headers:{
+        Authorization:auth.authorizationToken,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({
+        bucketId:(await b2GetBucket(env,auth)).bucketId
+      })
+    }
+  );
+
+  if(!uploadResponse.ok)throw new Error('Could not get PDF upload URL.');
+
+  const upload=await uploadResponse.json();
+  const bytes=await file.arrayBuffer();
+
+  const digest=await crypto.subtle.digest('SHA-1',bytes);
+  const sha1=Array.from(new Uint8Array(digest))
+    .map(b=>b.toString(16).padStart(2,'0')).join('');
+
+  const response=await fetch(upload.uploadUrl,{
+    method:'POST',
+    headers:{
+      Authorization:upload.authorizationToken,
+      'X-Bz-File-Name':encodeURIComponent(fileKey),
+      'Content-Type':'application/pdf',
+      'X-Bz-Content-Sha1':sha1
+    },
+    body:bytes
+  });
+
+  if(!response.ok)throw new Error('PDF upload to Backblaze failed.');
+
+  return await response.json();
+}
 async function handle(request,env){
   if(!env.DB) return fail('Cloudflare D1 binding DB is missing. Add the D1 database binding in Cloudflare Pages settings.',503);
   const url=new URL(request.url), path=url.pathname.replace(/^\/api\/?/,''), method=request.method.toUpperCase();
