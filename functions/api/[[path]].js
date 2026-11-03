@@ -123,6 +123,15 @@ async function b2UploadPdf(env,file,fileKey){
 
   return await response.json();
 }
+async function b2UploadPdf(...) {
+  // پہلے والا upload code
+}
+
+// یہاں نیا b2ReadPdf مکمل paste کریں
+
+async function handle(request,env){
+  // باقی API code
+}
 async function handle(request,env){
   if(!env.DB) return fail('Cloudflare D1 binding DB is missing. Add the D1 database binding in Cloudflare Pages settings.',503);
   const url=new URL(request.url), path=url.pathname.replace(/^\/api\/?/,''), method=request.method.toUpperCase();
@@ -150,6 +159,128 @@ async function handle(request,env){
   if(path==='logout'&&method==='POST'){const token=cookieValue(request,COOKIE);if(token)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(token)).run();return json({ok:true},200,{'set-cookie':cookie('',0)});}
   const user=await getUser(request,env);if(!user)return fail('Please sign in.',401);
   if(path==='me'&&method==='GET')return json({user});
+  // E-BOOK: LIST ALL BOOKS
+if(path==='ebooks'&&method==='GET'){
+  const params=[];
+  let sql=`
+    SELECT
+      e.*,
+      l.name AS library_name,
+      c.name AS category_name
+    FROM ebooks e
+    LEFT JOIN libraries l ON l.id=e.library_id
+    LEFT JOIN categories c ON c.id=e.category_id
+    WHERE e.active=1
+  `;
+
+  if(!isAdmin(user)){
+    sql+=' AND e.library_id=?';
+    params.push(user.library_id);
+  }
+
+  sql+=' ORDER BY e.created_at DESC';
+
+  const result=await env.DB.prepare(sql).bind(...params).all();
+  return json({data:result.results||[]});
+}
+
+// E-BOOK: UPLOAD PDF
+if(path==='ebooks'&&method==='POST'){
+  if(isAdmin(user)){
+    return fail('Super Admin can view E-Books but cannot upload.',403);
+  }
+
+  const form=await request.formData();
+  const title=String(form.get('title')||'').trim();
+  const author=String(form.get('author')||'').trim();
+  const description=String(form.get('description')||'').trim();
+  const libraryId=Number(form.get('library_id'));
+  const categoryValue=form.get('category_id');
+  const categoryId=categoryValue?Number(categoryValue):null;
+  const file=form.get('file');
+
+  if(!title||!libraryId||!file||typeof file.arrayBuffer!=='function'){
+    return fail('Title, library and PDF file are required.');
+  }
+
+  if(file.size>25*1024*1024){
+    return fail('PDF must be 25 MB or smaller.');
+  }
+
+  if(file.type!=='application/pdf'){
+    return fail('Please select a PDF file only.');
+  }
+
+  if(Number(user.library_id)!==libraryId){
+    return fail('You can upload only to your assigned library.',403);
+  }
+
+  const library=await env.DB.prepare(
+    'SELECT id FROM libraries WHERE id=? AND active=1'
+  ).bind(libraryId).first();
+
+  if(!library)return fail('Library not found or inactive.');
+
+  if(categoryId){
+    const category=await env.DB.prepare(
+      'SELECT id FROM categories WHERE id=? AND library_id=?'
+    ).bind(categoryId,libraryId).first();
+
+    if(!category)return fail('Selected category does not belong to this library.');
+  }
+
+  const fileKey=`ebooks/${libraryId}/${crypto.randomUUID()}.pdf`;
+
+  const uploaded=await b2UploadPdf(env,file,fileKey);
+
+  const result=await env.DB.prepare(`
+    INSERT INTO ebooks
+    (title,author,description,category_id,library_id,file_key,
+     original_filename,mime_type,file_size,active,uploaded_by)
+    VALUES(?,?,?,?,?,?,?,?,?,1,?)
+  `).bind(
+    title,
+    author,
+    description,
+    categoryId,
+    libraryId,
+    fileKey,
+    file.name||'ebook.pdf',
+    'application/pdf',
+    file.size,
+    user.id
+  ).run();
+
+  await audit(env,user,'create','ebooks',result.meta?.last_row_id||null,title);
+
+  return json({ok:true,message:'E-Book uploaded successfully.'},201);
+}
+
+// E-BOOK: READ PDF
+const ebookFileMatch=path.match(/^ebooks\/(\d+)\/file$/);
+
+if(ebookFileMatch&&method==='GET'){
+  const ebookId=Number(ebookFileMatch[1]);
+
+  let sql=`
+    SELECT id,library_id,file_key
+    FROM ebooks
+    WHERE id=? AND active=1
+  `;
+
+  const params=[ebookId];
+
+  if(!isAdmin(user)){
+    sql+=' AND library_id=?';
+    params.push(user.library_id);
+  }
+
+  const ebook=await env.DB.prepare(sql).bind(...params).first();
+
+  if(!ebook)return fail('E-Book not found or access denied.',404);
+
+  return await b2ReadPdf(env,ebook.file_key);
+}
   if(path==='users'&&method==='GET'){
     if(!isAdmin(user))return fail('Only Super Admin can manage user accounts.',403);
     const rows=await env.DB.prepare('SELECT id,email,full_name,role,library_id,active,created_at FROM users ORDER BY full_name').all();return json({data:rows.results||[]});
