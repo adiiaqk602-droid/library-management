@@ -154,7 +154,7 @@ function renderLibraryInventory() {
         <td>${damagedCount}</td>
       </tr>
     `;
-  }).join('') || '<tr><td colspan="7">No inventory found.</td></tr>';
+ }).join('') || '<tr><td colspan="8">No inventory found.</td></tr>';
 }
 function render(){
     fillSelects();
