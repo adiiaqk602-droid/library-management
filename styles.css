@@ -876,3 +876,35 @@ header img {
   object-fit: contain;
   max-height: 65px;
 }
+/* AQK Premium Quick Access */
+.dashboardQuick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0 25px;
+}
+
+.dashboardQuick button {
+  min-height: 58px;
+  border: 1px solid #dce4ef;
+  border-left: 4px solid #d8b24c;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #fff, #f2f6fc);
+  color: #102b55;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16,43,85,.07);
+  transition: .2s ease;
+}
+
+.dashboardQuick button:hover {
+  background: #102b55;
+  color: white;
+  transform: translateY(-3px);
+}
+
+@media(max-width:700px) {
+  .dashboardQuick {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
