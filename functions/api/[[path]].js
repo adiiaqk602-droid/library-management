@@ -123,15 +123,7 @@ async function b2UploadPdf(env,file,fileKey){
 
   return await response.json();
 }
-async function b2UploadPdf(env,file,fileKey){
-  // پہلے والا upload code
-}
 
-// یہاں نیا b2ReadPdf مکمل paste کریں
-
-async function handle(request,env){
-  // باقی API code
-}
 async function handle(request,env){
   if(!env.DB) return fail('Cloudflare D1 binding DB is missing. Add the D1 database binding in Cloudflare Pages settings.',503);
   const url=new URL(request.url), path=url.pathname.replace(/^\/api\/?/,''), method=request.method.toUpperCase();
