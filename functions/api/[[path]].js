@@ -1206,4 +1206,3 @@ export async function onRequest(context) {
     }, 500);
   }
 }
-
