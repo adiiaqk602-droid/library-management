@@ -781,3 +781,42 @@ input:focus, select:focus, textarea:focus {
 #monthlyIssueChart .chartRow {
   margin-bottom: 15px;
 }
+/* AQK Premium Sidebar Upgrade */
+.tabs {
+  background: linear-gradient(180deg, #102b55, #081a35);
+  padding: 18px 12px;
+  border-radius: 14px;
+  gap: 8px;
+}
+
+.tabs button {
+  width: 100%;
+  text-align: left;
+  padding: 12px 15px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #e8eef8;
+  font-weight: 600;
+  transition: all .25s ease;
+}
+
+.tabs button:hover {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(216,178,76,.5);
+  transform: translateX(3px);
+}
+
+.tabs button.active,
+.tabs button[aria-selected="true"] {
+  background: linear-gradient(90deg, #d8b24c, #f0d58a);
+  color: #102b55;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+
+@media(max-width:700px) {
+  .tabs button {
+    padding: 10px;
+    font-size: 13px;
+  }
+}
