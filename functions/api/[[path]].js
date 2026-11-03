@@ -4,16 +4,13 @@ const TABLES = {
   categories: { fields: ["name","code","description","library_id"], scoped: true },
   wings: { fields: ["name","library_id","description"], scoped: true },
  racks: {
-  fields: [
-    "name",
-    "code",
-    "library_id",
-    "wing_id",
-    "description",
-    "rack_number",
-    "shelf_number",
-    "location_code",
-    "minimum_stock"
+ fields: [
+  "name",
+  "code",
+  "library_id",
+  "wing_id",
+  "description",
+  "rack_number"
   ],
   scoped: true
 },
