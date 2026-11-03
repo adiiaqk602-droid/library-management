@@ -383,6 +383,100 @@ $('stats').innerHTML=[
 ].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
 
 $('reportStats').innerHTML=$('stats').innerHTML;
+  ```javascript
+// AQK Library-wise Books Chart
+const libraryChartData = state.libraries.map(l => ({
+  name: l.name,
+  total: state.books.filter(
+    b => Number(b.library_id) === Number(l.id)
+  ).length
+}));
+
+const maxLibraryBooks = Math.max(
+  1,
+  ...libraryChartData.map(x => x.total)
+);
+
+$('libraryBooksChart').innerHTML = libraryChartData.map(x => `
+  <div class="chartRow">
+    <div class="chartLabel">
+      <span>${safe(x.name)}</span>
+      <b>${x.total}</b>
+    </div>
+    <div class="chartTrack">
+      <div class="chartBar"
+        style="width:${(x.total / maxLibraryBooks) * 100}%">
+      </div>
+    </div>
+  </div>
+`).join('');
+```
+  ```javascript
+// AQK Monthly Issue / Return Chart
+const monthlyData = [];
+
+const today = new Date();
+
+for (let i = 5; i >= 0; i--) {
+  const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+
+  const monthLoans = state.loans || [];
+
+  const issued = monthLoans.filter(l => {
+    if (!l.issue_date) return false;
+    const date = new Date(l.issue_date);
+    return !isNaN(date) &&
+      date.getFullYear() === year &&
+      date.getMonth() === month;
+  }).length;
+
+  const returned = monthLoans.filter(l => {
+    if (!l.return_date) return false;
+    const date = new Date(l.return_date);
+    return !isNaN(date) &&
+      date.getFullYear() === year &&
+      date.getMonth() === month;
+  }).length;
+
+  monthlyData.push({
+    label: d.toLocaleDateString('en', { month: 'short', year: '2-digit' }),
+    issued,
+    returned
+  });
+}
+
+const monthlyMax = Math.max(
+  1,
+  ...monthlyData.map(x => Math.max(x.issued, x.returned))
+);
+
+$('monthlyIssueChart').innerHTML = `
+  <div class="chartLegend">
+    <span>🟦 Issued</span>
+    <span>🟨 Returned</span>
+  </div>
+  ${monthlyData.map(x => `
+    <div class="chartRow">
+      <div class="chartLabel">
+        <span>${x.label}</span>
+        <b>${x.issued} issued / ${x.returned} returned</b>
+      </div>
+      <div class="chartTrack">
+        <div class="chartBar"
+          style="width:${x.issued / monthlyMax * 100}%">
+        </div>
+      </div>
+      <div class="chartTrack returnTrack">
+        <div class="chartBar returnBar"
+          style="width:${x.returned / monthlyMax * 100}%">
+        </div>
+      </div>
+    </div>
+  `).join('')}
+`;
+```
 const reportRows = (items, makeRow, cols) =>
   (items || []).length
     ? items.map(makeRow).join('')
