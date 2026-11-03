@@ -188,6 +188,14 @@ $('bookRows').innerHTML=filteredBooks.map(b=>{
   const available = cp.filter(c =>
     String(c.status || '').toLowerCase() === 'available'
   ).length;
+  console.log('AQK STOCK DEBUG:', {
+  book: b.title,
+  bookId: b.id,
+  copies: cp.map(c => ({
+    book_id: c.book_id,
+    status: c.status
+  }))
+});
 
   return `<tr>
     <td><input type="checkbox" class="bookSelectCheckbox" data-book-id="${Number(b.id)}"></td>
