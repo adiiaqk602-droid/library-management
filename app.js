@@ -168,8 +168,27 @@ function render(){
     fillSelects();
     $('libraryCards').innerHTML=state.libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code)}${l.id==state.user.library_id&&!isAdmin()?' · Your assigned library':''}</p></div>`).join('');
     $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
-$('bookRows').innerHTML=state.books.map(b=>{
+const stockFilter = window.aqkStockFilter || 'all';
+
+const filteredBooks = state.books.filter(b => {
+  const available = state.copies.filter(c =>
+    Number(c.book_id) === Number(b.id) &&
+    String(c.status || '').toLowerCase() === 'available'
+  ).length;
+
+  if (stockFilter === 'low') return available > 0 && available <= 5;
+  if (stockFilter === 'out') return available === 0;
+
+  return true;
+});
+
+$('bookRows').innerHTML=filteredBooks.map(b=>{
   const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));
+
+  const available = cp.filter(c =>
+    String(c.status || '').toLowerCase() === 'available'
+  ).length;
+
   return `<tr>
     <td><input type="checkbox" class="bookSelectCheckbox" data-book-id="${Number(b.id)}"></td>
     <td>${safe(b.ser_no||'—')}<br><b>${safe(b.title)}</b><div class="muted small">Tag: ${safe(b.tag_id||'—')}</div></td>
@@ -178,29 +197,22 @@ $('bookRows').innerHTML=state.books.map(b=>{
     <td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td>
     <td>${cp.length}</td>
     <td>
-  ${(() => {
-    const available = cp.filter(c =>
-      String(c.status || '').toLowerCase() === 'available'
-    ).length;
-
-    if (available === 0) {
-      return '<b style="color:#dc2626">Out of Stock (0)</b>';
-    }
-
-    if (available <= 5) {
-      return `<b style="color:#d97706">Low Stock (${available})</b>`;
-    }
-
-    return `<b style="color:#16a34a">Normal (${available})</b>`;
-  })()}
-</td>
-    <td>${cp.filter(c=>c.status==='issued').length}</td>
+      ${available === 0
+        ? '<b style="color:#dc2626">Out of Stock (0)</b>'
+        : available <= 5
+          ? `<b style="color:#d97706">Low Stock (${available})</b>`
+          : `<b style="color:#16a34a">Normal (${available})</b>`
+      }
+    </td>
+    <td>${cp.filter(c=>String(c.status||'').toLowerCase()==='issued').length}</td>
     <td>
       <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
       <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
     </td>
   </tr>`;
-}).join('')||'<tr><td colspan="9">No books entered yet.</td></tr>';renderCategorySearch();
+}).join('')||'<tr><td colspan="9">No books found for this stock filter.</td></tr>';
+
+renderCategorySearch();
 $('wingRows').innerHTML = state.wings.map(w => `
   <tr>
     <td>${safe(w.name)}</td>
@@ -408,7 +420,44 @@ $('monthlyRows').innerHTML = reportRows(
   $('setupForm').addEventListener('submit',async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));try{const r=await api('setup',{method:'POST',body:JSON.stringify(f)});setupMessage(r.message);e.currentTarget.reset();hide('setupPanel');show('loginPanel');}catch(err){setupMessage(err.message);}});
   $('loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const result=await api('login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});state.user=result.user;message('Signed in.',true);await refresh();}catch(err){message(err.message,true);}});
   $('logoutBtn').addEventListener('click',async()=>{try{await api('logout',{method:'POST',body:'{}'});}finally{state.user=null;hide('appPanel');show('loginPanel');$('password').value='';}});
-  $('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('hidden',x.id!==b.dataset.tab));});
+ $('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tab]');
+  if(!b)return;
+
+  if(b.dataset.tab==='books' && !window.aqkOpenFilteredBooks){
+    window.aqkStockFilter='all';
+  }
+
+  document.querySelectorAll('[data-tab]').forEach(x=>
+    x.classList.toggle('active',x===b)
+  );
+
+  document.querySelectorAll('.tab').forEach(x=>
+    x.classList.toggle('hidden',x.id!==b.dataset.tab)
+  );
+});
+
+// AQK Feature 117: Click Stock Dashboard Cards
+$('stats').addEventListener('click',e=>{
+  const card=e.target.closest('.stat');
+  if(!card)return;
+
+  const label=card.querySelector('span')?.textContent?.trim();
+
+  if(label==='Low Stock Books'){
+    window.aqkStockFilter='low';
+  }else if(label==='Out of Stock Books'){
+    window.aqkStockFilter='out';
+  }else{
+    return;
+  }
+
+  window.aqkOpenFilteredBooks=true;
+  document.querySelector('[data-tab="books"]').click();
+  window.aqkOpenFilteredBooks=false;
+
+  render();
+});
   $('categorySearch')?.addEventListener('input', renderCategorySearch);
 $('categoryLibraryFilter')?.addEventListener('change', renderCategorySearch);document.querySelectorAll('[data-refresh]').forEach(b=>b.addEventListener('click',()=>refresh().catch(e=>message(e.message))));
   // AQK: Select all books
