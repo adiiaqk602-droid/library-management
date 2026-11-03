@@ -1145,3 +1145,33 @@ header img {
     display: none;
   }
 }
+/* AQK Premium Forms */
+.panel form,
+#books form {
+  background: #fff;
+  border: 1px solid #dce5f1;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 6px 18px rgba(16,43,85,.07);
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #ccd7e5;
+  border-radius: 9px;
+  padding: 11px 13px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #164e9b;
+  box-shadow: 0 0 0 3px rgba(22,78,155,.12);
+}
+
+button {
+  transition: .2s ease;
+}
