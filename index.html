@@ -16,7 +16,44 @@
 
 <nav class="tabs" id="tabs"><button data-tab="dashboard" class="active">Dashboard</button><button data-tab="books">New Books</button><button data-tab="ebooks">E-Books</button><button data-tab="categories">Categories</button><button data-tab="libraries">Libraries &amp; Wings</button><button data-tab="members">Students / Membership</button><button data-tab="inventory">Inventory</button>
 <button data-tab="racks">Rack Management</button><button data-tab="loans">Issue / Return / Fine</button><button data-tab="reports">Reports</button><button data-tab="users" data-admin-only="1">Librarian Accounts</button></nav>
-<section id="dashboard" class="tab panel"><h2>Dashboard</h2><div id="stats" class="stats"></div><h3>Library-wise overview</h3><div id="libraryCards" class="libraryGrid"></div><p id="statusText" class="muted small">Connecting…</p></section>
+```html
+<section id="dashboard" class="tab panel">
+  <h2>Dashboard</h2>
+
+  <div id="stats" class="stats"></div>
+
+  <h3>Quick Access</h3>
+  <div class="dashboardQuick">
+    <button data-tab="books">+ New Book</button>
+    <button data-tab="ebooks">E-Books</button>
+    <button data-tab="members">Students / Members</button>
+    <button data-tab="loans">Issue / Return</button>
+    <button data-tab="racks">Rack Management</button>
+    <button data-tab="reports">Reports</button>
+  </div>
+
+  <h3>Library-wise overview</h3>
+  <div id="libraryCards" class="libraryGrid"></div>
+
+  <div class="dashboardPanels">
+    <div class="dashboardBox">
+      <h3>Recent Activities</h3>
+      <div id="recentActivities" class="dashboardActivity">
+        Activities will appear here.
+      </div>
+    </div>
+
+    <div class="dashboardBox">
+      <h3>Stock Alerts</h3>
+      <div id="dashboardStockAlerts">
+        Stock information will appear here.
+      </div>
+    </div>
+  </div>
+
+  <p id="statusText" class="muted small">Connecting…</p>
+</section>
+```
 <section id="books" class="tab panel hidden"><div class="sectionHead"><div><h2>New Books Entry</h2><p class="muted">Each physical book gets a unique tag/copy ID.</p></div><button class="secondary" data-refresh="books">Refresh</button></div>
 
 <form id="bookForm" class="formGrid">
