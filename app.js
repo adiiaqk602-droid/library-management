@@ -171,16 +171,31 @@ function render(){
 const stockFilter = window.aqkStockFilter || 'all';
 
 const filteredBooks = state.books.filter(b => {
-  const available = state.copies.filter(c =>
-    Number(c.book_id) === Number(b.id) &&
-    String(c.status || '').toLowerCase() === 'available'
+  const copies = state.copies.filter(c =>
+    Number(c.book_id) === Number(b.id)
+  );
+
+  const available = copies.filter(c =>
+    String(c.status || '').trim().toLowerCase() === 'available'
   ).length;
+
+  console.log('AQK STOCK DEBUG:', {
+    book: b.title,
+    bookId: b.id,
+    totalCopies: copies.length,
+    copies: copies.map(c => ({
+      book_id: c.book_id,
+      status: c.status
+    })),
+    available: available
+  });
 
   if (stockFilter === 'low') return available > 0 && available <= 5;
   if (stockFilter === 'out') return available === 0;
 
   return true;
 });
+
 console.log('AQK STOCK FILTER:', stockFilter, filteredBooks.length);
 $('bookRows').innerHTML=filteredBooks.map(b=>{
   const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));
