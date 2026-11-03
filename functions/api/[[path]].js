@@ -123,7 +123,7 @@ async function b2UploadPdf(env,file,fileKey){
 
   return await response.json();
 }
-async function b2UploadPdf(...) {
+async function b2UploadPdf(env,file,fileKey){
   // پہلے والا upload code
 }
 
