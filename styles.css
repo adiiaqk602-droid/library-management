@@ -1050,3 +1050,36 @@ header img {
 .returnBar {
   background: linear-gradient(90deg, #d8a12c, #f4d47c);
 }
+/* AQK Five Libraries Premium Cards */
+.libraryGrid {
+  gap: 22px;
+}
+
+.libraryGrid .libCard {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dce5f1;
+  box-shadow: 0 7px 20px rgba(16,43,85,.09);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.libraryGrid .libCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 25px rgba(16,43,85,.15);
+}
+
+.shelfInfo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  color: #43536a;
+  font-size: 13px;
+}
+
+.shelfInfo b {
+  color: #102b55;
+  font-size: 16px;
+}
