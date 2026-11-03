@@ -458,3 +458,100 @@ input:focus, select:focus, textarea:focus {
   }
 }
 ```
+```css
+/* AQK PREMIUM LIBRARY HERO BANNER */
+
+.aqkHero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 230px;
+  overflow: hidden;
+  padding: 30px;
+  margin-bottom: 24px;
+  border-radius: 20px;
+  background: linear-gradient(115deg, #102344, #164e83 65%, #236b86);
+  color: #fff;
+  box-shadow: 0 12px 30px #102b5530;
+}
+
+.aqkHero::after {
+  content: "";
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: 8%;
+  top: -130px;
+  border: 2px solid #ffffff20;
+  border-radius: 50%;
+  box-shadow: 0 0 0 35px #ffffff08,
+              0 0 0 70px #ffffff06;
+}
+
+.aqkHeroText {
+  position: relative;
+  z-index: 1;
+  max-width: 650px;
+}
+
+.aqkHeroTag {
+  color: #f2ce78;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.aqkHeroText h2 {
+  color: #fff;
+  font-size: clamp(25px, 4vw, 38px);
+  margin: 12px 0;
+}
+
+.aqkHeroText p {
+  color: #dce8f7;
+  max-width: 520px;
+}
+
+.aqkHeroFeatures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.aqkHeroFeatures span {
+  background: #ffffff18;
+  border: 1px solid #ffffff30;
+  border-radius: 30px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.aqkHeroBooks {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 65px;
+  filter: drop-shadow(0 8px 5px #0005);
+}
+
+.aqkHeroBooks span:nth-child(2) {
+  font-size: 90px;
+}
+
+@media(max-width: 650px) {
+  .aqkHero {
+    padding: 22px;
+  }
+  .aqkHeroBooks {
+    font-size: 35px;
+  }
+  .aqkHeroBooks span:nth-child(2) {
+    font-size: 48px;
+  }
+}
+```
