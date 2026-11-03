@@ -1083,3 +1083,65 @@ header img {
   color: #102b55;
   font-size: 16px;
 }
+/* AQK Premium Welcome Banner */
+.aqkHero {
+  position: relative;
+  overflow: hidden;
+  min-height: 190px;
+  padding: 30px;
+  border-radius: 18px;
+  background: linear-gradient(120deg, #081a35, #164e9b 75%, #c49a3a);
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(16,43,85,.2);
+}
+
+.aqkHeroText {
+  position: relative;
+  z-index: 2;
+}
+
+.aqkHeroTag {
+  color: #f4d47c;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.aqkHero h2 {
+  color: #fff !important;
+  font-size: 30px;
+  margin: 12px 0;
+}
+
+.aqkHero p {
+  color: #e2eaf6;
+}
+
+.aqkHeroFeatures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.aqkHeroFeatures span {
+  background: rgba(255,255,255,.13);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.aqkHeroBooks {
+  position: absolute;
+  right: 35px;
+  bottom: 10px;
+  font-size: 65px;
+  opacity: .65;
+}
+
+@media(max-width:650px) {
+  .aqkHeroBooks {
+    display: none;
+  }
+}
