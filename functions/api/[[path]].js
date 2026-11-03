@@ -117,7 +117,11 @@ async function handle(request,env){
         COUNT(bc.id) AS current_stock
       FROM racks r
       JOIN libraries lib ON lib.id=r.library_id
-      LEFT JOIN book_copies bc ON bc.rack_id=r.id
+      LEFT JOIN books b
+  ON b.rack_id=r.id
+  AND b.library_id=r.library_id
+LEFT JOIN book_copies bc
+  ON bc.book_id=b.id
       WHERE 1=1 ${isAdmin(user)?'':' AND r.library_id=?'}
       GROUP BY r.id
       ORDER BY lib.name,r.name
@@ -129,37 +133,45 @@ async function handle(request,env){
     });
   }
 
-  // RACK-WISE BOOK LIST
-  if(path==='inventory/rack-books'&&method==='GET'){
-    const rackId=Number(url.searchParams.get('rack_id')||0);
-    if(!rackId)return fail('Rack ID is required.');
+ 
+// RACK-WISE BOOK LIST
+if(path==='inventory/rack-books'&&method==='GET'){
+  const rackId=Number(url.searchParams.get('rack_id')||0);
+  if(!rackId)return fail('Rack ID is required.');
 
-    const rack=await env.DB.prepare(
-      'SELECT id,library_id FROM racks WHERE id=?'
-    ).bind(rackId).first();
+  const rack=await env.DB.prepare(
+    'SELECT id,library_id FROM racks WHERE id=?'
+  ).bind(rackId).first();
 
-    if(!rack)return fail('Rack not found.',404);
-    if(!assertLibrary(user,rack.library_id))
-      return fail('You cannot view another library rack.',403);
+  if(!rack)return fail('Rack not found.',404);
 
-    const rows=await env.DB.prepare(`
-      SELECT
-        bc.*,
-        b.title,b.author,b.ser_no,b.accession_no,b.price,
-        b.library_id,
-        r.name AS rack_name,
-        r.rack_number,
-        r.shelf_number AS rack_shelf_number
-      FROM book_copies bc
-      JOIN books b ON b.id=bc.book_id
-      LEFT JOIN racks r ON r.id=bc.rack_id
-      WHERE COALESCE(bc.rack_id,b.rack_id)=?
-        AND b.library_id=?
-      ORDER BY b.title,bc.copy_code
-    `).bind(rackId,rack.library_id).all();
+  if(!assertLibrary(user,rack.library_id))
+    return fail('You cannot view another library rack.',403);
 
-    return json({data:rows.results||[]});
-  }
+  const rows=await env.DB.prepare(`
+    SELECT
+      bc.*,
+      COALESCE(bc.rack_id,b.rack_id) AS assigned_rack_id,
+      b.title,
+      b.author,
+      b.ser_no,
+      b.accession_no,
+      b.price,
+      b.library_id,
+      r.name AS rack_name,
+      r.rack_number,
+      r.shelf_number AS rack_shelf_number
+    FROM book_copies bc
+    JOIN books b ON b.id=bc.book_id
+    LEFT JOIN racks r
+      ON r.id=COALESCE(bc.rack_id,b.rack_id)
+    WHERE COALESCE(bc.rack_id,b.rack_id)=?
+      AND b.library_id=?
+    ORDER BY b.title,bc.copy_code
+  `).bind(rackId,rack.library_id).all();
+
+  return json({data:rows.results||[]});
+}
 
   // INVENTORY MOVEMENT HISTORY
   if(path==='inventory/movements'&&method==='GET'){
