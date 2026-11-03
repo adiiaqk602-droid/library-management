@@ -149,26 +149,29 @@ if(path==='inventory/rack-books'&&method==='GET'){
   if(!assertLibrary(user,rack.library_id))
     return fail('You cannot view another library rack.',403);
 
-  const rows=await env.DB.prepare(`
-    SELECT
-      bc.*,
-      COALESCE(bc.rack_id,b.rack_id) AS assigned_rack_id,
-      b.title,
-      b.author,
-      b.ser_no,
-      b.accession_no,
-      b.price,
-      b.library_id,
-      r.name AS rack_name,
-      r.rack_number,
-    FROM book_copies bc
-    JOIN books b ON b.id=bc.book_id
-    LEFT JOIN racks r
-      ON r.id=COALESCE(bc.rack_id,b.rack_id)
-    WHERE COALESCE(bc.rack_id,b.rack_id)=?
-      AND b.library_id=?
-    ORDER BY b.title,bc.copy_code
-  `).bind(rackId,rack.library_id).all();
+ const rows=await env.DB.prepare(`
+  SELECT
+    bc.*,
+    COALESCE(bc.rack_id,b.rack_id) AS assigned_rack_id,
+    b.title,
+    b.author,
+    b.ser_no,
+    b.accession_no,
+    b.price,
+    b.library_id,
+    r.name AS rack_name,
+    r.rack_number
+  FROM book_copies bc
+  JOIN books b ON b.id=bc.book_id
+  LEFT JOIN racks r
+    ON r.id=COALESCE(bc.rack_id,b.rack_id)
+  WHERE COALESCE(bc.rack_id,b.rack_id)=?
+    AND b.library_id=?
+  ORDER BY b.title,bc.copy_code
+`).bind(rackId,rack.library_id).all();
+
+return json({data:rows.results||[]});
+}
 
   return json({data:rows.results||[]});
 }
