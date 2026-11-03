@@ -188,8 +188,43 @@ function renderLibraryInventory() {
 }
 function render(){
     fillSelects();
-    $('libraryCards').innerHTML=state.libraries.map(l=>`<div class="libCard"><b>${safe(l.name)}</b><p class="muted small">${safe(l.code)}${l.id==state.user.library_id&&!isAdmin()?' · Your assigned library':''}</p></div>`).join('');
-    $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
+$('libraryCards').innerHTML = state.libraries.map(l => {
+  const books = state.books.filter(
+    b => Number(b.library_id) === Number(l.id)
+  );
+
+  const copies = state.copies.filter(c =>
+    books.some(b => Number(b.id) === Number(c.book_id))
+  );
+
+  const available = copies.filter(c =>
+    String(c.status || '').toLowerCase() === 'available'
+  ).length;
+
+  const shelfBooks = books.slice(0, 10).map((b, i) =>
+    `<span class="shelfBook shelfBook-${i % 6}" title="${safe(b.title)}"></span>`
+  ).join('');
+
+  return `
+    <div class="libCard shelfCard">
+      <div class="shelfCardHead">
+        <b>${safe(l.name)}</b>
+        <span>${safe(l.code)}</span>
+      </div>
+      <div class="bookshelf">
+        <div class="shelfBookRow">
+          ${shelfBooks || '<span class="emptyShelf">No books yet</span>'}
+        </div>
+        <div class="shelfWood"></div>
+      </div>
+      <div class="shelfInfo">
+        <span>Book Titles: <b>${books.length}</b></span>
+        <span>Copies: <b>${copies.length}</b></span>
+        <span>Available: <b>${available}</b></span>
+      </div>
+    </div>
+  `;
+}).join('');   $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
 const stockFilter = window.aqkStockFilter || 'all';
 
 const filteredBooks = state.books.filter(b => {
