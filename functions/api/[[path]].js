@@ -160,7 +160,6 @@ if(path==='inventory/rack-books'&&method==='GET'){
       b.library_id,
       r.name AS rack_name,
       r.rack_number,
-      r.shelf_number AS rack_shelf_number
     FROM book_copies bc
     JOIN books b ON b.id=bc.book_id
     LEFT JOIN racks r
