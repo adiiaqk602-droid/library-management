@@ -939,3 +939,48 @@ header img {
 #dashboard .muted {
   color: #718096;
 }
+/* AQK Realistic Wooden Bookshelves */
+.shelfCard {
+  background: linear-gradient(145deg, #fff, #f5f7fb);
+  border: 1px solid #dce4ef;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 7px 20px rgba(16,43,85,.09);
+}
+
+.shelfCardHead {
+  padding: 15px 18px;
+  background: linear-gradient(90deg, #102b55, #164e9b);
+  color: #fff;
+}
+
+.shelfCardHead span {
+  color: #f2d58a;
+}
+
+.bookshelf {
+  background: linear-gradient(180deg, #e8c18b, #9b6033);
+  padding: 20px 12px 9px;
+  border: 7px solid #794522;
+  border-top-width: 10px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.25);
+}
+
+.shelfBook {
+  border-radius: 4px 4px 1px 1px;
+  box-shadow: inset 3px 0 4px rgba(255,255,255,.35),
+              2px 2px 4px rgba(0,0,0,.3);
+  transition: transform .2s ease;
+}
+
+.shelfBook:hover {
+  transform: translateY(-7px);
+}
+
+.shelfWood {
+  height: 13px;
+  background: linear-gradient(#c58a4b, #71401f);
+  border-radius: 2px;
+  box-shadow: 0 5px 7px rgba(0,0,0,.25);
+}
