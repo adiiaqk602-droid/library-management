@@ -181,7 +181,7 @@ const filteredBooks = state.books.filter(b => {
 
   return true;
 });
-
+console.log('AQK STOCK FILTER:', stockFilter, filteredBooks.length);
 $('bookRows').innerHTML=filteredBooks.map(b=>{
   const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));
 
