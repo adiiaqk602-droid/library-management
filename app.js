@@ -177,7 +177,23 @@ $('bookRows').innerHTML=state.books.map(b=>{
     <td>${safe(state.libraries.find(l=>l.id==b.library_id)?.name||'')}</td>
     <td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td>
     <td>${cp.length}</td>
-    <td>${cp.filter(c=>c.status==='available').length}</td>
+    <td>
+  ${(() => {
+    const available = cp.filter(c =>
+      String(c.status || '').toLowerCase() === 'available'
+    ).length;
+
+    if (available === 0) {
+      return '<b style="color:#dc2626">Out of Stock (0)</b>';
+    }
+
+    if (available <= 5) {
+      return `<b style="color:#d97706">Low Stock (${available})</b>`;
+    }
+
+    return `<b style="color:#16a34a">Normal (${available})</b>`;
+  })()}
+</td>
     <td>${cp.filter(c=>c.status==='issued').length}</td>
     <td>
       <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
@@ -201,6 +217,26 @@ $('wingRows').innerHTML = state.wings.map(w => `
   </tr>
 `).join('') || '<tr><td colspan="4">No wings yet.</td></tr>';
   renderLibraryInventory();
+  const lowStockBooks = state.books.filter(b => {
+  const available = state.copies.filter(c =>
+    Number(c.book_id) === Number(b.id) &&
+    String(c.status || '').toLowerCase() === 'available'
+  ).length;
+
+  return available <= 5;
+});
+
+const outOfStockBooks = lowStockBooks.filter(b =>
+  !state.copies.some(c =>
+    Number(c.book_id) === Number(b.id) &&
+    String(c.status || '').toLowerCase() === 'available'
+  )
+);
+
+console.log('AQK Minimum Stock Alert:', {
+  lowStock: lowStockBooks.length,
+  outOfStock: outOfStockBooks.length
+});
  console.log('AQK Rack Data:', state.racks);
   $('rackRows').innerHTML = state.racks.map(r => `
   <tr>
