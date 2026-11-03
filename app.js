@@ -113,7 +113,7 @@ function renderLibraryInventory() {
     ['Old Books', stockCount('old')],
     ['Donate Books', stockCount('donate')],
     ['Available', available],
-    ['Issued', issued]
+    ['Issued', issued],
     ['Damaged', damaged]
   ].map(([label, count]) => `
     <div class="stat">
