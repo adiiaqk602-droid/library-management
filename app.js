@@ -3,6 +3,28 @@
   const $ = id => document.getElementById(id);
   const safe = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state = {user:null,libraries:[],categories:[],wings:[],racks:[],books:[],ebooks:[],members:[],copies:[],loans:[],users:[],settings:{}};
+  window.AQK_STOCK_CHECK = () => {
+  console.log('TOTAL BOOKS:', state.books.length);
+  console.log('TOTAL COPIES:', state.copies.length);
+
+  console.table(state.books.map(b => {
+    const cp = state.copies.filter(c =>
+      Number(c.book_id) === Number(b.id)
+    );
+
+    const available = cp.filter(c =>
+      String(c.status || '').trim().toLowerCase() === 'available'
+    ).length;
+
+    return {
+      title: b.title,
+      book_id: b.id,
+      total_copies: cp.length,
+      available: available,
+      statuses: cp.map(c => c.status).join(', ')
+    };
+  }));
+};
   async function api(path, options={}) {
     const res = await fetch(`${API}/${path}`, {credentials:'same-origin',headers:{'content-type':'application/json',...(options.headers||{})},...options});
     let data={};try{data=await res.json();}catch{}
