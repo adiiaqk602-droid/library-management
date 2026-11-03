@@ -1218,3 +1218,26 @@ tbody tr:hover {
     padding: 9px 7px;
   }
 }
+/* AQK Premium E-Books Section */
+#ebooks {
+  background: linear-gradient(145deg, #f7f9fd, #edf3fb);
+  border-radius: 16px;
+  padding: 22px;
+}
+
+#ebooks h2,
+#ebooks h3 {
+  color: #102b55;
+}
+
+#ebooks table {
+  margin-top: 18px;
+}
+
+#ebooks button {
+  background: linear-gradient(120deg, #102b55, #164e9b);
+  color: #fff;
+  border: 1px solid #d8b24c;
+  border-radius: 8px;
+  padding: 9px 15px;
+}
