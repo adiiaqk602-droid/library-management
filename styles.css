@@ -984,3 +984,36 @@ header img {
   border-radius: 2px;
   box-shadow: 0 5px 7px rgba(0,0,0,.25);
 }
+/* AQK Premium Statistics Cards */
+#stats .stat {
+  position: relative;
+  overflow: hidden;
+  border-radius: 15px;
+  padding: 20px;
+  background: linear-gradient(135deg, #ffffff, #edf3fb);
+  border: 1px solid #dce5f1;
+  box-shadow: 0 6px 16px rgba(16,43,85,.08);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+#stats .stat:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 22px rgba(16,43,85,.15);
+}
+
+#stats .stat strong {
+  display: block;
+  color: #102b55;
+  font-size: 27px;
+  font-weight: 800;
+  margin-top: 9px;
+}
+
+#stats .stat::after {
+  content: "📚";
+  position: absolute;
+  right: 13px;
+  bottom: 5px;
+  font-size: 35px;
+  opacity: .12;
+}
