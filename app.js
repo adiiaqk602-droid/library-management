@@ -383,7 +383,7 @@ $('stats').innerHTML=[
 ].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
 
 $('reportStats').innerHTML=$('stats').innerHTML;
-javascript
+
 // AQK Library-wise Books Chart
 const libraryChartData = state.libraries.map(l => ({
   name: l.name,
@@ -410,8 +410,7 @@ $('libraryBooksChart').innerHTML = libraryChartData.map(x => `
     </div>
   </div>
 `).join('');
-```
-javascript
+
 // AQK Monthly Issue / Return Chart
 const monthlyData = [];
 
@@ -476,7 +475,6 @@ $('monthlyIssueChart').innerHTML = `
     </div>
   `).join('')}
 `;
-```
 const reportRows = (items, makeRow, cols) =>
   (items || []).length
     ? items.map(makeRow).join('')
@@ -2002,8 +2000,19 @@ window.printAQKMultiple = ids => {
       hide('ebookReader');
     });
   }
-  $('bookForm').elements.entry_date.value=new Date().toISOString().slice(0,10);
-  $('loanForm').elements.issue_date.value=new Date().toISOString().slice(0,10);
-  $('loanForm').elements.due_date.value=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
-  init();
+  const bookForm = $('bookForm');
+if (bookForm?.elements?.entry_date) {
+  bookForm.elements.entry_date.value = new Date().toISOString().slice(0, 10);
+}
+
+const loanForm = $('loanForm');
+if (loanForm?.elements?.issue_date) {
+  loanForm.elements.issue_date.value = new Date().toISOString().slice(0, 10);
+}
+if (loanForm?.elements?.due_date) {
+  loanForm.elements.due_date.value = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+}
+
+init();
 })();
+ 
