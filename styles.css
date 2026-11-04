@@ -1322,3 +1322,103 @@ tbody tr:hover {
   border-radius: 8px;
   padding: 9px 15px;
 }
+
+/* =====================================
+   AQK FINAL PREMIUM DESIGN OVERRIDE
+===================================== */
+
+:root {
+  --navy: #102b55;
+  --blue: #1d4f91;
+  --gold: #d8b24c;
+  --bg: #f2f5fa;
+  --ink: #17263c;
+  --muted: #718096;
+  --line: #e1e7f0;
+}
+
+body {
+  background: #f2f5fa;
+}
+
+/* Dashboard Main Panel */
+#dashboard {
+  background: #f7f9fc;
+  border: 1px solid #e4eaf2;
+  border-radius: 18px;
+  padding: 26px;
+}
+
+/* Dashboard Heading */
+#dashboard > h2 {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -.5px;
+  margin-bottom: 22px;
+}
+
+/* Statistics Cards */
+#dashboard .stat {
+  border-radius: 17px;
+  min-height: 125px;
+  padding: 21px;
+  border: 1px solid #e5eaf2;
+  box-shadow: 0 5px 18px rgba(16,43,85,.07);
+  transition: .25s ease;
+}
+
+#dashboard .stat:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 25px rgba(16,43,85,.12);
+}
+
+/* Quick Access */
+.dashboardQuick button {
+  min-height: 65px;
+  border-radius: 13px;
+  font-size: 14px;
+  border-left: 4px solid var(--gold);
+  box-shadow: 0 5px 15px rgba(16,43,85,.07);
+}
+
+/* Library Cards */
+.libraryGrid .libCard {
+  border-radius: 17px;
+  border: 1px solid #e0e7f0;
+  box-shadow: 0 6px 18px rgba(16,43,85,.07);
+  transition: .25s ease;
+}
+
+.libraryGrid .libCard:hover {
+  transform: translateY(-5px);
+  border-color: var(--gold);
+}
+
+/* Dashboard Charts */
+.dashboardChartBox,
+.dashboardBox {
+  border-radius: 17px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 6px 20px rgba(16,43,85,.06);
+  padding: 22px;
+}
+
+/* Section Headings */
+.dashboardChartBox h3,
+.dashboardBox h3 {
+  color: var(--navy);
+  font-weight: 800;
+  border-bottom: 2px solid var(--gold);
+  padding-bottom: 12px;
+}
+
+/* Responsive */
+@media(max-width:650px) {
+  #dashboard {
+    padding: 14px;
+  }
+
+  #dashboard > h2 {
+    font-size: 22px;
+  }
+}
