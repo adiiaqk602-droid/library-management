@@ -1149,7 +1149,7 @@ if(method==='DELETE'&&id){
 
   if(!current)return fail('Record not found.',404);
 
-  if(!isAdmin(user)&&(!meta.scoped||Number(current.library_id)!==Number(user.library_id)))
+  if(!isAdmin(user))
     return fail('You cannot delete records outside your assigned library.',403);
 
   // PROTECT RACKS CONTAINING INVENTORY OR HISTORY
