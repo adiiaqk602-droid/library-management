@@ -1801,23 +1801,32 @@ header.brand .logos p {
     font-size: 14px !important;
   }
 }
-/* AQK: Remove white gap below Sign Out */
-body {
+/* AQK Toolbar and Navigation Gap Fix */
+.toolbar.panel {
   margin: 0 !important;
+  border-radius: 0 !important;
+  background: #102b55 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-header.brand {
-  margin-bottom: 0 !important;
+.toolbar.panel .muted {
+  color: #dce7f7 !important;
 }
 
 #tabs {
-  margin-top: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
   background: #102b55 !important;
   padding: 10px 12px !important;
-  border-top: 0 !important;
 }
 
 #tabs button {
-  margin-top: 0;
+  margin-top: 0 !important;
+}
+
+#dashboard {
+  margin-top: 0 !important;
 }
 
