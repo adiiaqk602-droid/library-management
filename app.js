@@ -1242,6 +1242,12 @@ window.editAQKRack = async function(id) {
   }
 };  
   window.deleteAQKRecord = async (table, id) => {
+
+  if (!isAdmin()) {
+    message('Only Super Admin can delete records.');
+    return;
+  }
+
   if (!confirm(`Delete this ${table.slice(0, -1)}? This cannot be undone.`)) {
     return;
   }
