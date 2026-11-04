@@ -1801,3 +1801,23 @@ header.brand .logos p {
     font-size: 14px !important;
   }
 }
+/* AQK: Remove white gap below Sign Out */
+body {
+  margin: 0 !important;
+}
+
+header.brand {
+  margin-bottom: 0 !important;
+}
+
+#tabs {
+  margin-top: 0 !important;
+  background: #102b55 !important;
+  padding: 10px 12px !important;
+  border-top: 0 !important;
+}
+
+#tabs button {
+  margin-top: 0;
+}
+
