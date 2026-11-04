@@ -1448,3 +1448,53 @@ main {
 #appPanel > .tabs {
   margin-top: 0 !important;
 }
+
+/* AQK CONNECTED FULL PAGE LAYOUT */
+
+.brand {
+  margin: 0 !important;
+  padding: 8px 18px !important;
+}
+
+main {
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  padding: 10px 14px !important;
+}
+
+#appPanel {
+  margin: 0 !important;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 12px !important;
+  align-items: start;
+}
+
+#appPanel > .toolbar {
+  grid-column: 1 / -1;
+  margin: 0 !important;
+}
+
+#appPanel > .tabs {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0 !important;
+  top: 8px;
+}
+
+#appPanel > .tab {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0 !important;
+}
+
+@media(max-width:650px) {
+  #appPanel {
+    display: block;
+  }
+
+  #appPanel > .tabs,
+  #appPanel > .tab {
+    margin-bottom: 10px !important;
+  }
+}
