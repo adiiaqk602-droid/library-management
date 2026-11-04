@@ -1422,3 +1422,29 @@ body {
     font-size: 22px;
   }
 }
+
+/* AQK Header and Dashboard Spacing Fix */
+
+.brand {
+  margin-bottom: 0 !important;
+  padding-bottom: 10px !important;
+}
+
+main {
+  margin-top: 0 !important;
+  padding-top: 10px !important;
+}
+
+#appPanel {
+  margin-top: 0 !important;
+  gap: 10px !important;
+}
+
+#appPanel > .toolbar {
+  margin-bottom: 0 !important;
+}
+
+/* Keep college header and dashboard visually connected */
+#appPanel > .tabs {
+  margin-top: 0 !important;
+}
