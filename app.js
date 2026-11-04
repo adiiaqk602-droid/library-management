@@ -2004,7 +2004,7 @@ window.printAQKMultiple = ids => {
       hide('ebookReader');
     });
   }
-  const bookForm = $('bookForm');
+
 if (bookForm?.elements?.entry_date) {
   bookForm.elements.entry_date.value = new Date().toISOString().slice(0, 10);
 }
