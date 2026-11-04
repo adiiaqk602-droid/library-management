@@ -582,8 +582,12 @@ $('monthlyRows').innerHTML = reportRows(
     for(const [name,res] of [['libraries',libs],['categories',cats],['wings',wings],['racks',racks],['books',books],['members',members],['copies',copies],['loans',loans]])if(res.error)throw new Error(`${name}: ${res.error}`);
     state.libraries=libs.data||[];state.categories=cats.data||[];state.wings=wings.data||[];state.racks=racks.data||[];state.books=books.data||[];state.members=members.data||[];state.copies=copies.data||[];state.loans=loans.data||[];state.report=report;state.settings=Object.fromEntries((settings.data||[]).map(x=>[x.key,x.value]));
     if(isAdmin())state.users=(await api('users')).data||[];
+   
     render();
+    show('appPanel');
+    hide('loginPanel');
     await loadEbooks();
+
     if(isAdmin())for(const [key,el] of Object.entries({fine_per_day:'fine_per_day',damaged_fine_percent:'damaged_fine_percent',lost_book_extra_fine:'lost_book_extra_fine',loan_days:'loan_days'}))if($(el))$(el).value=state.settings[key]??'';
   }
   async function init(){
