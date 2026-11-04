@@ -324,7 +324,46 @@ const outOfStockBooks = lowStockBooks.filter(b =>
     String(c.status || '').toLowerCase() === 'available'
   )
 );
+// AQK Dashboard: Stock Alerts
+const stockAlertBox = $('dashboardStockAlerts');
 
+if (stockAlertBox) {
+  const alertItems = lowStockBooks.map(b => {
+    const available = state.copies.filter(c =>
+      Number(c.book_id) === Number(b.id) &&
+      String(c.status || '').toLowerCase() === 'available'
+    ).length;
+
+    return `<div class="reportRow">
+      <strong>${safe(b.title)}</strong>
+      <span>${available === 0 ? 'Out of Stock' : `${available} Available`}</span>
+    </div>`;
+  });
+
+  stockAlertBox.innerHTML = alertItems.join('') ||
+    '<p class="muted">No stock alerts. All books have sufficient stock.</p>';
+}
+
+// AQK Dashboard: Recent Activities
+const activityBox = $('recentActivities');
+
+if (activityBox) {
+  const activities = state.loans
+    .map(l => ({
+      loan: l,
+      date: l.return_date || l.issue_date,
+      action: l.return_date ? 'Returned' : 'Issued'
+    }))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+    .slice(0, 8);
+
+  activityBox.innerHTML = activities.map(a => `
+    <div class="reportRow">
+      <strong>${safe(a.action)}: ${safe(a.loan.title)}</strong>
+      <span>${safe(a.loan.full_name)} · ${safe(a.date || '')}</span>
+    </div>
+  `).join('') || '<p class="muted">No recent activities yet.</p>';
+}
 console.log('AQK Minimum Stock Alert:', {
   lowStock: lowStockBooks.length,
   outOfStock: outOfStockBooks.length
@@ -573,7 +612,35 @@ $('monthlyRows').innerHTML = reportRows(
   r.monthlyIssuesReturns,
   x => `<tr><td>${safe(x.month)}</td><td>${safe(x.issued)}</td><td>${safe(x.returned)}</td></tr>`,
   3
-);    $('statusText').textContent=`Connected to Cloudflare D1 · Signed in as ${state.user.role.replace('_',' ')}.`;
+);    // AQK Dashboard: Category-wise Books Overview
+const categoryBox = $('dashboardCategoryChart');
+if (categoryBox) {
+  categoryBox.innerHTML = state.categories.map(c => {
+    const total = state.books.filter(b => String(b.category_id) === String(c.id)).length;
+    return `<div class="reportRow"><strong>${safe(c.name)}</strong><span>${total} Book Titles</span></div>`;
+  }).join('') || '<p class="muted">No category data available.</p>';
+}
+
+// AQK Dashboard: Daily Issue / Return Statistics
+const dailyBox = $('dashboardDailyStats');
+if (dailyBox) {
+  const today = new Date().toISOString().slice(0, 10);
+  const issuedToday = state.loans.filter(l => String(l.issue_date || '').slice(0, 10) === today).length;
+  const returnedToday = state.loans.filter(l => String(l.return_date || '').slice(0, 10) === today).length;
+  dailyBox.innerHTML = `
+    <div class="stat"><strong>${issuedToday}</strong><span>Issued Today</span></div>
+    <div class="stat"><strong>${returnedToday}</strong><span>Returned Today</span></div>`;
+}
+
+// AQK Dashboard: Fine Collection Summary
+const fineBox = $('dashboardFineSummary');
+if (fineBox) {
+  const totalFine = state.loans.reduce((sum, l) => sum + Number(l.fine_amount || 0), 0);
+  const paidFine = state.loans.reduce((sum, l) => sum + Number(l.fine_paid || 0), 0);
+  fineBox.innerHTML = `
+    <div class="stat"><strong>${reportMoney(paidFine)}</strong><span>Fine Collected</span></div>
+    <div class="stat"><strong>${reportMoney(Math.max(0, totalFine - paidFine))}</strong><span>Fine Outstanding</span></div>`;
+}$('statusText').textContent=`Connected to Cloudflare D1 · Signed in as ${state.user.role.replace('_',' ')}.`;
     document.querySelectorAll('[data-admin-only]').forEach(el=>el.classList.toggle('hidden',!isAdmin()));hide('setupPanel');hide('loginPanel');show('appPanel');
     if(isAdmin()){show('fineSettings');$('userRows').innerHTML=state.users.map(u=>`<tr><td>${safe(u.full_name)}</td><td>${safe(u.email)}</td><td>${safe(u.role)}</td><td>${safe(state.libraries.find(l=>l.id==u.library_id)?.name||'All libraries')}</td><td>${u.active?'Active':'Disabled'}</td><td>${u.role==='librarian'?`<button class="actionBtn" onclick="window.toggleAQKUser(${Number(u.id)},${u.active?0:1})">${u.active?'Disable':'Enable'}</button>`:''}</td></tr>`).join('');}else hide('fineSettings');
   }
@@ -1901,6 +1968,11 @@ window.printAQKMultiple = ids => {
     try {
       const result = await api('ebooks');
       state.ebooks = result.data || [];
+      // Update Dashboard E-Books count
+const ebookStat = document.getElementById('dashboardEbookCount');
+if (ebookStat) {
+  ebookStat.textContent = state.ebooks.length;
+}
       const q = ($('ebookSearch').value || '').trim().toLowerCase();
       const filtered = state.ebooks.filter(b =>
         `${b.title || ''} ${b.author || ''}`.toLowerCase().includes(q)
