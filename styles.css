@@ -1567,3 +1567,8 @@ main {
     margin-bottom: 8px !important;
   }
 }
+#appPanel {
+  display: grid;
+  grid-template-columns: 220px minmax(0,1fr);
+  gap: 8px;
+}
