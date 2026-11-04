@@ -383,7 +383,7 @@ $('stats').innerHTML=[
 ].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
 
 $('reportStats').innerHTML=$('stats').innerHTML;
-  ```javascript
+javascript
 // AQK Library-wise Books Chart
 const libraryChartData = state.libraries.map(l => ({
   name: l.name,
@@ -411,7 +411,7 @@ $('libraryBooksChart').innerHTML = libraryChartData.map(x => `
   </div>
 `).join('');
 ```
-  ```javascript
+javascript
 // AQK Monthly Issue / Return Chart
 const monthlyData = [];
 
