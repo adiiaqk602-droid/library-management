@@ -1498,3 +1498,72 @@ main {
     margin-bottom: 10px !important;
   }
 }
+
+/* AQK FINAL COMPACT CONNECTED LAYOUT */
+
+.brand {
+  padding: 6px 14px !important;
+  margin: 0 !important;
+}
+
+.logos {
+  max-width: 100% !important;
+  gap: 12px;
+}
+
+.logos img {
+  width: 58px;
+  height: 58px;
+}
+
+main {
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 5px 10px !important;
+}
+
+#appPanel {
+  display: grid !important;
+  grid-template-columns: 220px minmax(0, 1fr) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  align-items: start;
+}
+
+#appPanel > .toolbar {
+  grid-column: 1 / -1;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+}
+
+#appPanel > .tabs {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0 !important;
+  position: sticky;
+  top: 5px;
+  padding: 10px !important;
+}
+
+#appPanel > .tab {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0 !important;
+  padding: 18px !important;
+  min-width: 0;
+}
+
+#dashboard {
+  margin: 0 !important;
+}
+
+@media(max-width:650px) {
+  #appPanel {
+    display: block !important;
+  }
+
+  #appPanel > .tabs {
+    position: static;
+    margin-bottom: 8px !important;
+  }
+}
