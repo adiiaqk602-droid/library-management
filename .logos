@@ -1741,3 +1741,51 @@ main {
     font-size:15px;
   }
 }
+/* AQK HEADER FINAL FIX */
+header.brand .logos {
+  display: grid !important;
+  grid-template-columns: 76px minmax(0, 1fr) 76px !important;
+  grid-template-rows: 1fr !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 12px !important;
+}
+
+header.brand .logos > img:first-child {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+}
+
+header.brand .logos > div {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  text-align: center !important;
+}
+
+header.brand .logos > img:last-child {
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+}
+
+header.brand .logos img {
+  display: block !important;
+  width: 76px !important;
+  height: 76px !important;
+  object-fit: contain !important;
+  justify-self: center !important;
+}
+
+@media(max-width:520px) {
+  header.brand .logos {
+    grid-template-columns: 48px minmax(0, 1fr) 48px !important;
+    gap: 6px !important;
+  }
+  header.brand .logos img {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  header.brand .logos h1 {
+    font-size: 15px !important;
+  }
+}
