@@ -23,7 +23,7 @@
   min-width:0;
   text-align:center;
 }
-}.logos img {
+.logos img {
   width:76px;
   height:76px;
   object-fit:contain;
