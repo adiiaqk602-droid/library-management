@@ -286,9 +286,16 @@ $('bookRows').innerHTML=filteredBooks.map(b=>{
     </td>
     <td>${cp.filter(c=>String(c.status||'').toLowerCase()==='issued').length}</td>
     <td>
-      <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
-      <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
-    </td>
+  <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
+  <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
+
+  ${isAdmin() ? `
+    <button class="actionBtn danger"
+      onclick="window.deleteAQKRecord('books', ${Number(b.id)})">
+      Delete
+    </button>
+  ` : ''}
+</td>
   </tr>`;
 }).join('')||'<tr><td colspan="9">No books found for this stock filter.</td></tr>';
 
