@@ -2358,3 +2358,81 @@ if (loanForm?.elements?.due_date) {
 init();
 })();
  
+/* AQK SIMPLE WHITE SIDEBAR DESIGN */
+
+#appPanel {
+  display: grid !important;
+  grid-template-columns: 220px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  background: #f5f7fa !important;
+}
+
+/* Top toolbar */
+#appPanel > .toolbar {
+  background: #ffffff !important;
+  color: #17263c !important;
+  border: 1px solid #e3eaf3 !important;
+  border-radius: 10px !important;
+}
+
+#appPanel > .toolbar .muted {
+  color: #718096 !important;
+}
+
+/* Left menu */
+#tabs {
+  background: #ffffff !important;
+  border: 1px solid #e3eaf3 !important;
+  border-radius: 10px !important;
+  padding: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  align-items: stretch !important;
+  position: sticky;
+  top: 5px;
+}
+
+/* Menu buttons */
+#tabs button {
+  width: 100% !important;
+  text-align: left !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  border-radius: 7px !important;
+  padding: 11px 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+/* Selected menu */
+#tabs button.active {
+  background: #eef2f7 !important;
+  color: #17365f !important;
+  border-left: 3px solid #64748b !important;
+}
+
+/* Dashboard simple look */
+#dashboard {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+}
+
+#dashboard .aqkHero {
+  background: #f5f7fa !important;
+  color: #17263c !important;
+  border: 1px solid #e3eaf3 !important;
+  border-radius: 10px !important;
+}
+
+/* Mobile */
+@media(max-width:650px) {
+  #appPanel {
+    display: block !important;
+  }
+
+  #tabs {
+    position: static !important;
+    margin-bottom: 10px !important;
+  }
+}
