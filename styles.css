@@ -1871,3 +1871,24 @@ header.brand .logos p {
     grid-template-columns: 1fr !important;
   }
 }
+/* AQK DASHBOARD STAT CARDS */
+
+#dashboard .stats {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+#dashboard .stats > * {
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 16px !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,.04) !important;
+}
+
+@media(max-width:800px) {
+  #dashboard .stats {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+  }
+}
