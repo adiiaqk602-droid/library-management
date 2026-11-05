@@ -905,6 +905,153 @@ return json({data:rows.results||[]});
       env.DB.prepare(`SELECT bc.stock_type label,bc.status status,COUNT(*) total FROM book_copies bc JOIN books b ON b.id=bc.book_id WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'} GROUP BY bc.stock_type,bc.status ORDER BY bc.stock_type,bc.status`).bind(...(isAdmin(user)?[]:[user.library_id])).all()
     ]);return json({stats:{books:bookCount.n,copies:copyCount.n,members:memberCount.n,issued:activeLoans.n,overdue:overdue.n,outstandingFine:fines.n},byCategory:categoryRows.results||[],byLibrary:libraryRows.results||[],inventory:inventoryRows.results||[]});
   }
+  // AQK ISSUE EDIT
+const issueEditMatch = path.match(/^loans\/(\d+)$/);
+
+if(issueEditMatch && method==='PATCH'){
+  const id = Number(issueEditMatch[1]);
+  const loan = await env.DB.prepare(
+    'SELECT * FROM loans WHERE id=?'
+  ).bind(id).first();
+
+  if(!loan) return fail('Issue record not found.',404);
+  if(loan.status!=='issued')
+    return fail('Only active issues can be edited.');
+
+  if(!assertLibrary(user,loan.library_id))
+    return fail('You cannot edit another library record.',403);
+
+  const d = await bodyJson(request);
+  if(!d) return fail('Invalid issue dates.');
+
+  const issueDate = String(d.issue_date || loan.issue_date);
+  const dueDate = String(d.due_date || loan.due_date);
+
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(issueDate) ||
+     !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) ||
+     dueDate < issueDate){
+    return fail('Due date must be on or after issue date.');
+  }
+
+  await env.DB.prepare(
+    'UPDATE loans SET issue_date=?,due_date=? WHERE id=?'
+  ).bind(issueDate,dueDate,id).run();
+
+  await audit(env,user,'update','loans',id,'Issue dates updated.');
+
+  return json({ok:true});
+}
+
+// AQK ISSUE CANCEL - SUPER ADMIN ONLY
+const issueCancelMatch = path.match(/^loans\/(\d+)\/cancel$/);
+
+if(issueCancelMatch && method==='POST'){
+  if(!isAdmin(user))
+    return fail('Only Super Admin can cancel an issue.',403);
+
+  const id = Number(issueCancelMatch[1]);
+
+  const loan = await env.DB.prepare(
+    'SELECT * FROM loans WHERE id=?'
+  ).bind(id).first();
+
+  if(!loan) return fail('Issue record not found.',404);
+  if(loan.status!=='issued')
+    return fail('Only active issues can be cancelled.');
+
+  const copy = await env.DB.prepare(
+    'SELECT status FROM book_copies WHERE id=?'
+  ).bind(loan.copy_id).first();
+
+  if(!copy || copy.status!=='issued')
+    return fail('Book copy status does not allow cancellation.');
+
+  await env.DB.prepare(
+    "UPDATE loans SET status='cancelled' WHERE id=?"
+  ).bind(id).run();
+
+  await env.DB.prepare(
+    "UPDATE book_copies SET status='available' WHERE id=?"
+  ).bind(loan.copy_id).run();
+
+  await audit(env,user,'cancel','loans',id,'Issue cancelled; copy made available.');
+
+  return json({ok:true});
+}
+  // AQK RETURN EDIT
+const returnEditMatch = path.match(/^loans\/(\d+)\/return$/);
+
+if(returnEditMatch && method==='PATCH'){
+  if(!isAdmin(user))
+    return fail('Only Super Admin can edit return records.',403);
+
+  const id = Number(returnEditMatch[1]);
+
+  const loan = await env.DB.prepare(`
+    SELECT l.*,c.id copy_id,b.price
+    FROM loans l
+    JOIN book_copies c ON c.id=l.copy_id
+    JOIN books b ON b.id=c.book_id
+    WHERE l.id=?
+  `).bind(id).first();
+
+  if(!loan || !['returned','lost'].includes(loan.status))
+    return fail('Returned record not found.');
+
+  const d = await bodyJson(request);
+  if(!d) return fail('Invalid return data.');
+
+  const returnDate = String(d.return_date || '');
+  const disposition = String(d.disposition || loan.return_disposition || 'returned');
+
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(returnDate))
+    return fail('Valid return date is required.');
+
+  if(!['returned','damaged','lost'].includes(disposition))
+    return fail('Invalid return condition.');
+
+  const lateDays = Math.max(0,Math.floor(
+    (Date.parse(returnDate+'T00:00:00Z') -
+     Date.parse(loan.due_date+'T00:00:00Z')) / 86400000
+  ));
+
+  const setting = async (k,def) =>
+    Number((await env.DB.prepare(
+      'SELECT value FROM settings WHERE key=?'
+    ).bind(k).first())?.value ?? def);
+
+  let fine = lateDays * await setting('fine_per_day',10);
+
+  if(disposition==='damaged')
+    fine += loan.price * await setting('damaged_fine_percent',50) / 100;
+
+  if(disposition==='lost')
+    fine += loan.price + await setting('lost_book_extra_fine',100);
+
+  if(fine < Number(loan.fine_paid || 0))
+    return fail('New fine cannot be less than the amount already paid.');
+
+  const status = disposition==='lost' ? 'lost' : 'returned';
+
+  await env.DB.prepare(`
+    UPDATE loans
+    SET status=?,return_date=?,fine_amount=?,return_disposition=?
+    WHERE id=?
+  `).bind(status,returnDate,fine,disposition,id).run();
+
+  await env.DB.prepare(`
+    UPDATE book_copies SET status=?,condition=? WHERE id=?
+  `).bind(
+    disposition==='lost'?'lost':disposition==='damaged'?'damaged':'available',
+    disposition==='lost'?'Lost':disposition==='damaged'?'Damaged':'Good',
+    loan.copy_id
+  ).run();
+
+  await audit(env,user,'update','loans',id,
+    `Return edited; fine=${fine}; disposition=${disposition}`);
+
+  return json({ok:true,fine,lateDays});
+}
   if(path==='issue'&&method==='POST'){
     const d=await bodyJson(request);if(!d)return fail('Invalid request.');const member=await env.DB.prepare('SELECT id,library_id,active FROM members WHERE id=?').bind(Number(d.member_id)).first();const copy=await env.DB.prepare('SELECT c.id,c.status,b.library_id,b.price FROM book_copies c JOIN books b ON b.id=c.book_id WHERE c.id=?').bind(Number(d.copy_id)).first();
     if(!member||!copy||!member.active)return fail('Member or book copy not found/active.');if(Number(member.library_id)!==Number(copy.library_id))return fail('Member and book copy must belong to the same library.');if(!assertLibrary(user,member.library_id))return fail('You cannot issue books from another library.',403);if(copy.status!=='available')return fail('This copy is not available.',409);
@@ -914,7 +1061,8 @@ return json({data:rows.results||[]});
   if(path==='return'&&method==='POST'){
     const d=await bodyJson(request);if(!d||!Number(d.id))return fail('Loan ID required.');const loan=await env.DB.prepare('SELECT l.*,c.book_id,b.price FROM loans l JOIN book_copies c ON c.id=l.copy_id JOIN books b ON b.id=c.book_id WHERE l.id=?').bind(Number(d.id)).first();if(!loan||loan.status!=='issued')return fail('Active loan not found.');if(!assertLibrary(user,loan.library_id))return fail('You cannot return a book from another library.',403);
     const returnDate=String(d.return_date||new Date().toISOString().slice(0,10));const lateDays=Math.max(0,Math.floor((Date.parse(returnDate+'T00:00:00Z')-Date.parse(loan.due_date+'T00:00:00Z'))/86400000));const setting=async(k,def)=>Number((await env.DB.prepare('SELECT value FROM settings WHERE key=?').bind(k).first())?.value??def);const finePerDay=await setting('fine_per_day',10);let fine=lateDays*finePerDay;const disposition=String(d.disposition||'returned');if(disposition==='damaged')fine+=loan.price*(await setting('damaged_fine_percent',50))/100;if(disposition==='lost')fine+=loan.price+await setting('lost_book_extra_fine',100);
-    const status=disposition==='lost'?'lost':'returned';await env.DB.prepare('UPDATE loans SET status=?,return_date=?,returned_by=?,fine_amount=?,notes=? WHERE id=?').bind(status,returnDate,user.id,fine,String(d.notes||'').slice(0,500),loan.id).run();await env.DB.prepare('UPDATE book_copies SET status=?,condition=? WHERE id=?').bind(disposition==='lost'?'lost':disposition==='damaged'?'damaged':'available',disposition==='lost'?'Lost':disposition==='damaged'?'Damaged':'Good',loan.copy_id).run();await audit(env,user,'return','loans',loan.id,`fine=${fine}; disposition=${disposition}`);return json({ok:true,fine,lateDays});
+    const status=disposition==='lost'?'lost':'returned';await env.DB.prepare('UPDATE loans SET status=?,return_date=?,returned_by=?,fine_amount=?,notes=?,return_disposition=? WHERE id=?'
+).bind(status,returnDate,user.id,fine,String(d.notes||'').slice(0,500),disposition,loan.id).run();await env.DB.prepare('UPDATE book_copies SET status=?,condition=? WHERE id=?').bind(disposition==='lost'?'lost':disposition==='damaged'?'damaged':'available',disposition==='lost'?'Lost':disposition==='damaged'?'Damaged':'Good',loan.copy_id).run();await audit(env,user,'return','loans',loan.id,`fine=${fine}; disposition=${disposition}`);return json({ok:true,fine,lateDays});
   }
   if(path==='loans'&&method==='GET'){
     const rows=await env.DB.prepare(`SELECT l.*,m.full_name,m.member_no,bc.copy_code,b.title,b.price,lib.name library_name FROM loans l JOIN members m ON m.id=l.member_id JOIN book_copies bc ON bc.id=l.copy_id JOIN books b ON b.id=bc.book_id JOIN libraries lib ON lib.id=l.library_id WHERE 1=1${isAdmin(user)?'':' AND l.library_id=?'} ORDER BY l.created_at DESC LIMIT 1000`).bind(...(isAdmin(user)?[]:[user.library_id])).all();return json({data:rows.results||[]});
