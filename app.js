@@ -232,8 +232,6 @@ const stockFilter = window.aqkStockFilter || 'all';
 const searchText = ($('bookFilterSearch')?.value || '').trim().toLowerCase();
 const libraryFilter = $('bookFilterLibrary')?.value || '';
 const categoryFilter = $('bookFilterCategory')?.value || '';
-const stockFilter = $('bookFilterStock')?.value || '';
-
 const filteredBooks = state.books.filter(b => {
   const copies = state.copies.filter(c =>
     Number(c.book_id) === Number(b.id)
