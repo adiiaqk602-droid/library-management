@@ -2147,3 +2147,41 @@ header.brand .logos p {
   font-size: 16px !important;
   padding: 12px 18px !important;
 }
+/* AQK FINAL DASHBOARD SIZE FIX */
+#dashboard {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 30px !important;
+  font-size: 20px !important;
+}
+
+#dashboard h2 {
+  font-size: 32px !important;
+}
+
+#dashboard h3 {
+  font-size: 27px !important;
+}
+
+#dashboard #libraryCards {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(280px, 1fr)) !important;
+  gap: 22px !important;
+}
+
+#dashboard #libraryCards > * {
+  min-height: 150px !important;
+  padding: 25px !important;
+  font-size: 21px !important;
+}
+
+#dashboard #libraryCards * {
+  font-size: 20px !important;
+  line-height: 1.6 !important;
+}
+
+@media(max-width: 700px) {
+  #dashboard #libraryCards {
+    grid-template-columns: 1fr !important;
+  }
+}
