@@ -444,6 +444,10 @@ console.log('AQK Minimum Stock Alert:', {
       ` : ''}
       ${['returned','lost'].includes(l.status) && isAdmin() ? `
         <button class="actionBtn" onclick="window.editAQKReturn(${Number(l.id)})">Edit Return</button>
+        ${isAdmin() ? `
+  <button class="actionBtn danger"
+    onclick="window.deleteAQKLoan(${Number(l.id)})">Delete</button>
+` : ''}
       ` : ''}
     </td>
   </tr>`;
@@ -1474,6 +1478,24 @@ window.editAQKReturn = async id => {
     'Condition: returned, damaged, or lost',
     loan.return_disposition || (loan.status === 'lost' ? 'lost' : 'returned')
   );
+  // AQK DELETE ISSUE / RETURN
+window.deleteAQKLoan = async id => {
+  if (!isAdmin()) {
+    return message('Only Super Admin can delete issue records.');
+  }
+
+  if (!confirm('Are you sure you want to permanently delete this issue/return record?')) {
+    return;
+  }
+
+  try {
+    await api(`loans/${id}`, { method: 'DELETE' });
+    message('Issue/Return record deleted successfully.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
   if (disposition === null) return;
 
   try {
