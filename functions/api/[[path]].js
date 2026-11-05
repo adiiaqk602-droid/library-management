@@ -1052,6 +1052,63 @@ if(returnEditMatch && method==='PATCH'){
 
   return json({ok:true,fine,lateDays});
 }
+ // AQK DELETE ISSUE / RETURN - SUPER ADMIN ONLY
+const loanDeleteMatch = path.match(/^loans\/(\d+)$/);
+
+if(loanDeleteMatch && method==='DELETE'){
+
+  if(!isAdmin(user))
+    return fail('Only Super Admin can delete issue records.',403);
+
+  const id = Number(loanDeleteMatch[1]);
+
+  const loan = await env.DB.prepare(
+    'SELECT * FROM loans WHERE id=?'
+  ).bind(id).first();
+
+  if(!loan)
+    return fail('Issue record not found.',404);
+
+  if(Number(loan.fine_paid || 0) > 0)
+    return fail('This record has paid fine. It cannot be deleted.');
+
+  await env.DB.prepare(
+    'DELETE FROM loans WHERE id=?'
+  ).bind(id).run();
+
+  // Restore copy status from its latest remaining loan
+  const latest = await env.DB.prepare(`
+    SELECT status,return_disposition
+    FROM loans
+    WHERE copy_id=? AND id<>?
+    ORDER BY id DESC
+    LIMIT 1
+  `).bind(loan.copy_id,id).first();
+
+  let copyStatus = 'available';
+  let copyCondition = 'Good';
+
+  if(latest){
+    if(latest.status==='issued'){
+      copyStatus='issued';
+    } else if(latest.status==='lost'){
+      copyStatus='lost';
+      copyCondition='Lost';
+    } else if(latest.return_disposition==='damaged'){
+      copyStatus='damaged';
+      copyCondition='Damaged';
+    }
+  }
+
+  await env.DB.prepare(
+    'UPDATE book_copies SET status=?,condition=? WHERE id=?'
+  ).bind(copyStatus,copyCondition,loan.copy_id).run();
+
+  await audit(env,user,'delete','loans',id,
+    'Test issue/return record deleted.');
+
+  return json({ok:true});
+}
   if(path==='issue'&&method==='POST'){
     const d=await bodyJson(request);if(!d)return fail('Invalid request.');const member=await env.DB.prepare('SELECT id,library_id,active FROM members WHERE id=?').bind(Number(d.member_id)).first();const copy=await env.DB.prepare('SELECT c.id,c.status,b.library_id,b.price FROM book_copies c JOIN books b ON b.id=c.book_id WHERE c.id=?').bind(Number(d.copy_id)).first();
     if(!member||!copy||!member.active)return fail('Member or book copy not found/active.');if(Number(member.library_id)!==Number(copy.library_id))return fail('Member and book copy must belong to the same library.');if(!assertLibrary(user,member.library_id))return fail('You cannot issue books from another library.',403);if(copy.status!=='available')return fail('This copy is not available.',409);
