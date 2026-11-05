@@ -784,8 +784,15 @@ $('clearBookFilters')?.addEventListener('click', () => {
   $('bookFilterLibrary').value = '';
   $('bookFilterCategory').value = '';
   $('bookFilterStock').value = '';
+  window.aqkStockFilter = 'all';
   render();
 });
+  
+$('applyBookFilters')?.addEventListener('click', () => {
+  window.aqkStockFilter = $('bookFilterStock')?.value || 'all';
+  render();
+});
+
 // END AQK BOOK FILTER EVENTS
   // AQK: Select all books
 $('selectAllBooks')?.addEventListener('change', e => {
