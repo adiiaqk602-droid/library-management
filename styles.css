@@ -2116,3 +2116,34 @@ header.brand .logos p {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+/* AQK DASHBOARD TEXT SIZE */
+
+#dashboard {
+  font-size: 17px !important;
+}
+
+#dashboard h2 {
+  font-size: 28px !important;
+}
+
+#dashboard h3 {
+  font-size: 23px !important;
+}
+
+#dashboard p,
+#dashboard label,
+#dashboard .dashboardBox,
+#dashboard .dashboardChartBox {
+  font-size: 17px !important;
+  line-height: 1.6 !important;
+}
+
+#dashboard .stats > * {
+  font-size: 19px !important;
+  padding: 24px !important;
+}
+
+#dashboard button {
+  font-size: 16px !important;
+  padding: 12px 18px !important;
+}
