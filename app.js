@@ -393,8 +393,26 @@ console.log('AQK Minimum Stock Alert:', {
       </button>
     </td>
   </tr>
-`).join('') || '<tr><td colspan="5">No racks yet.</td></tr>';
-    $('memberRows').innerHTML=state.members.map(m=>`<tr><td>${safe(m.member_no)}</td><td>${safe(m.full_name)}</td><td>${safe(m.member_type)}</td><td>${safe(m.college_id||'')}</td><td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td><td>${safe(m.contact||m.email||'')}</td></tr>`).join('')||'<tr><td colspan="6">No members yet.</td></tr>';
+`).join('') || '<tr><td colspan="5">No racks yet.</td></tr>';$('memberRows').innerHTML=state.members.map(m=>`
+<tr>
+  <td>${safe(m.member_no)}</td>
+  <td>${safe(m.full_name)}</td>
+  <td>${safe(m.member_type)}</td>
+  <td>${safe(m.college_id||'')}</td>
+  <td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td>
+  <td>${safe(m.contact||m.email||'')}</td>
+  <td>
+    <button class="actionBtn"
+      onclick="window.viewAQKMember(${Number(m.id)})">View</button>
+    <button class="actionBtn"
+      onclick="window.editAQKMember(${Number(m.id)})">Edit</button>
+    ${isAdmin() ? `
+      <button class="actionBtn danger"
+        onclick="window.deleteAQKRecord('members',${Number(m.id)})">Delete</button>
+    ` : ''}
+  </td>
+</tr>
+`).join('')||'<tr><td colspan="7">No members yet.</td></tr>';
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
     $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
     const r=state.report||{stats:{}};const stats=r.stats||{};
@@ -877,7 +895,43 @@ submitForm('rackForm','racks','Rack saved.');
     message('Rack books error: ' + err.message);
   }
 });
-  submitForm('memberForm','members','Membership record saved.');
+  // AQK MEMBER ADD AND EDIT
+$('memberForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const form = e.currentTarget;
+  const editId = form.dataset.editId;
+  const data = formPayload(form);
+
+  try {
+    if (editId) {
+      await api(`members/${editId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      });
+
+      message('Member record updated successfully.');
+    } else {
+      await api('members', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+
+      message('New member added successfully.');
+    }
+
+    delete form.dataset.editId;
+    form.reset();
+
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.textContent = 'Add Member';
+
+    await refresh();
+
+  } catch (err) {
+    message(err.message);
+  }
+});
   submitForm('loanForm','issue','Book issued successfully.',d=>d);
   submitForm('userForm','users','Librarian account created.');
   $('settingsForm').addEventListener('submit',async e=>{e.preventDefault();const d=formPayload(e.currentTarget);try{for(const [key,value] of Object.entries(d))await api('settings',{method:'POST',body:JSON.stringify({key,value:Number(value)})});message('Fine settings saved.');await refresh();}catch(err){message(err.message);}});
@@ -1266,6 +1320,66 @@ window.editAQKRack = async function(id) {
   } catch (e) {
     message(e.message);
   }
+};
+  // AQK MEMBER VIEW
+window.viewAQKMember = id => {
+  const m = state.members.find(x => Number(x.id) === Number(id));
+
+  if (!m) {
+    message('Member not found.');
+    return;
+  }
+
+  alert(
+    'Member Details\n\n' +
+    'Member No: ' + (m.member_no || '') + '\n' +
+    'Name: ' + (m.full_name || '') + '\n' +
+    'Type: ' + (m.member_type || '') + '\n' +
+    'Student / College ID: ' + (m.college_id || '') + '\n' +
+    'Class / Department: ' + (m.class_department || '') + '\n' +
+    'Father / Guardian: ' + (m.father_name || '') + '\n' +
+    'Contact: ' + (m.contact || '') + '\n' +
+    'Email: ' + (m.email || '') + '\n' +
+    'Expiry Date: ' + (m.expiry_date || '') + '\n' +
+    'Address: ' + (m.address || '')
+  );
+};
+
+// AQK MEMBER EDIT
+window.editAQKMember = id => {
+  const m = state.members.find(x => Number(x.id) === Number(id));
+
+  if (!m) {
+    message('Member not found.');
+    return;
+  }
+
+  const form = $('memberForm');
+
+  [
+    'full_name',
+    'member_type',
+    'college_id',
+    'class_department',
+    'father_name',
+    'contact',
+    'email',
+    'expiry_date',
+    'library_id',
+    'address'
+  ].forEach(name => {
+    const field = form.elements.namedItem(name);
+    if (field) field.value = m[name] ?? '';
+  });
+
+  form.dataset.editId = m.id;
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.textContent = 'Update Member';
+
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  message('Member details loaded. Edit the fields and click Update Member.');
 };
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
