@@ -2014,3 +2014,28 @@ header.brand .logos p {
   font-size: 10px !important;
   white-space: nowrap !important;
 }
+/* AQK INVENTORY TABLE - READABLE SIZE */
+
+.tableWrap:has(#bookRows) {
+  width: 100% !important;
+  overflow-x: auto !important;
+}
+
+.tableWrap:has(#bookRows) table {
+  width: 100% !important;
+  min-width: 1350px !important;
+  table-layout: auto !important;
+  font-size: 13px !important;
+}
+
+.tableWrap:has(#bookRows) th,
+.tableWrap:has(#bookRows) td {
+  padding: 10px 8px !important;
+  white-space: nowrap !important;
+}
+
+.tableWrap:has(#bookRows) td button {
+  padding: 7px 9px !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
