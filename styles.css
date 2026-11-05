@@ -1829,4 +1829,45 @@ header.brand .logos p {
 #dashboard {
   margin-top: 0 !important;
 }
+/* AQK SIMPLE DASHBOARD */
 
+#dashboard {
+  background: #f8fafc !important;
+  padding: 15px !important;
+}
+
+#dashboard .aqkHero {
+  background: #fff !important;
+  color: #263548 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+}
+
+#dashboard .stats > *,
+#dashboard .dashboardChartBox,
+#dashboard .dashboardBox {
+  background: #fff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+}
+
+#dashboard h3 {
+  color: #334155 !important;
+}
+
+#dashboard .dashboardQuick button {
+  background: #fff !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+#dashboard .dashboardPanels {
+  gap: 10px !important;
+}
+
+@media(max-width:650px) {
+  #dashboard .dashboardPanels {
+    grid-template-columns: 1fr !important;
+  }
+}
