@@ -279,7 +279,42 @@
       Select All
     </button>
   </div>
+<!-- AQK BOOK FILTERS -->
+<div class="formGrid wide" id="bookFilters">
 
+  <label>Search Books
+    <input id="bookFilterSearch" type="search"
+      placeholder="Title, Author, Accession No, ISBN">
+  </label>
+
+  <label>Library
+    <select id="bookFilterLibrary">
+      <option value="">All Libraries</option>
+    </select>
+  </label>
+
+  <label>Category
+    <select id="bookFilterCategory">
+      <option value="">All Categories</option>
+    </select>
+  </label>
+
+  <label>Stock Status
+    <select id="bookFilterStock">
+      <option value="">All Stock</option>
+      <option value="available">Available</option>
+      <option value="issued">Issued</option>
+      <option value="out">Out of Stock</option>
+    </select>
+  </label>
+
+  <div class="wide">
+    <button type="button" id="clearBookFilters"
+      class="secondary">Clear Filters</button>
+  </div>
+
+</div>
+<!-- END AQK BOOK FILTERS -->
   <div class="tableWrap">
     <table>
       <thead>
