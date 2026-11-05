@@ -1981,3 +1981,8 @@ header.brand .logos p {
 #dashboard > #libraryCards {
   display: grid !important;
 }
+/* HIDE DASHBOARD STOCK ALERTS */
+
+#dashboard .dashboardPanels .dashboardBox:last-child {
+  display: none !important;
+}
