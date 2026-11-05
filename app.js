@@ -414,7 +414,40 @@ console.log('AQK Minimum Stock Alert:', {
 </tr>
 `).join('')||'<tr><td colspan="7">No members yet.</td></tr>';
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
-    $('loanRows').innerHTML=state.loans.map(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
+   $('loanRows').innerHTML = state.loans.map(l => {
+  const overdue = l.status === 'issued' &&
+    l.due_date < new Date().toISOString().slice(0,10);
+
+  return `<tr>
+    <td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td>
+    <td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td>
+    <td>${safe(l.library_name)}</td>
+    <td>${safe(l.issue_date)}</td>
+    <td>${safe(l.due_date)}${overdue ? ' <span class="badge">Overdue</span>' : ''}</td>
+    <td>${safe(l.return_date || '—')}</td>
+    <td>
+      ${Number(l.fine_amount || 0).toFixed(2)}
+      ${Number(l.fine_paid || 0) > 0 ? ` (paid ${Number(l.fine_paid).toFixed(2)})` : ''}
+    </td>
+    <td>
+      ${safe(l.status)}
+      ${l.status === 'issued' ? `
+        <button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>
+      ` : ''}
+    </td>
+    <td>
+      ${l.status === 'issued' ? `
+        <button class="actionBtn" onclick="window.editAQKLoan(${Number(l.id)})">Edit Issue</button>
+        ${isAdmin() ? `
+          <button class="actionBtn danger" onclick="window.cancelAQKLoan(${Number(l.id)})">Cancel</button>
+        ` : ''}
+      ` : ''}
+      ${['returned','lost'].includes(l.status) && isAdmin() ? `
+        <button class="actionBtn" onclick="window.editAQKReturn(${Number(l.id)})">Edit Return</button>
+      ` : ''}
+    </td>
+  </tr>`;
+}).join('') || '<tr><td colspan="9">No issue records yet.</td></tr>';(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
     const r=state.report||{stats:{}};const stats=r.stats||{};
     const lowStockCount = state.books.filter(b => {
   const available = state.copies.filter(c =>
@@ -1382,6 +1415,82 @@ window.editAQKMember = id => {
   message('Member details loaded. Edit the fields and click Update Member.');
 };
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
+  // AQK ISSUE EDIT
+window.editAQKLoan = async id => {
+  const loan = state.loans.find(x => Number(x.id) === Number(id));
+  if (!loan) return message('Issue record not found.');
+  if (loan.status !== 'issued') return message('Only active issues can be edited.');
+
+  const issue_date = prompt('Issue Date (YYYY-MM-DD)', loan.issue_date);
+  if (issue_date === null) return;
+
+  const due_date = prompt('Due Date (YYYY-MM-DD)', loan.due_date);
+  if (due_date === null) return;
+
+  if (!issue_date || !due_date || due_date < issue_date) {
+    return message('Due date must be on or after issue date.');
+  }
+
+  try {
+    await api(`loans/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ issue_date, due_date })
+    });
+    message('Issue dates updated successfully.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
+
+// AQK CANCEL ISSUE
+window.cancelAQKLoan = async id => {
+  if (!isAdmin()) return message('Only Super Admin can cancel an issue.');
+
+  if (!confirm('Cancel this issue? The book copy will become available again.')) return;
+
+  try {
+    await api(`loans/${id}/cancel`, { method: 'POST' });
+    message('Issue cancelled. Book copy is available again.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
+
+// AQK EDIT RETURN
+window.editAQKReturn = async id => {
+  if (!isAdmin()) return message('Only Super Admin can edit return records.');
+
+  const loan = state.loans.find(x => Number(x.id) === Number(id));
+  if (!loan || !['returned', 'lost'].includes(loan.status)) {
+    return message('Returned record not found.');
+  }
+
+  const return_date = prompt('Return Date (YYYY-MM-DD)', loan.return_date || '');
+  if (return_date === null) return;
+
+  const disposition = prompt(
+    'Condition: returned, damaged, or lost',
+    loan.return_disposition || (loan.status === 'lost' ? 'lost' : 'returned')
+  );
+  if (disposition === null) return;
+
+  try {
+    const r = await api(`loans/${id}/return`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        return_date,
+        disposition: disposition.toLowerCase()
+      })
+    });
+
+    message(`Return updated. New fine: Rs. ${Number(r.fine || 0).toFixed(2)}`);
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
   window.toggleAQKUser=async(id,active)=>{if(!confirm(`${active?'Enable':'Disable'} this librarian account?`))return;try{await api('users',{method:'PATCH',body:JSON.stringify({id,active})});await refresh();message('User account updated.');}catch(e){message(e.message);}};
   
 window.printAQKLabels = id => {
