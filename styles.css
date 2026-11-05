@@ -1986,3 +1986,31 @@ header.brand .logos p {
 #dashboard .dashboardPanels .dashboardBox:last-child {
   display: none !important;
 }
+/* AQK INVENTORY BOOK TABLE FULL WIDTH */
+
+.tableWrap:has(#bookRows) {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+.tableWrap:has(#bookRows) table {
+  width: 100% !important;
+  table-layout: fixed !important;
+  font-size: 11px !important;
+}
+
+.tableWrap:has(#bookRows) th,
+.tableWrap:has(#bookRows) td {
+  padding: 7px 4px !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  vertical-align: middle !important;
+}
+
+.tableWrap:has(#bookRows) td button {
+  padding: 5px !important;
+  margin: 2px !important;
+  font-size: 10px !important;
+  white-space: nowrap !important;
+}
