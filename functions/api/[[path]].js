@@ -1141,7 +1141,53 @@ if(table==='racks'){
     return fail('Could not update record.',409);
   }
 }
+// AQK MEMBER EDIT - Super Admin and assigned Librarian
+if(table==='members' && method==='PATCH' && id){
 
+  const current = await env.DB.prepare(
+    'SELECT * FROM members WHERE id=?'
+  ).bind(id).first();
+
+  if(!current) return fail('Member not found.',404);
+
+  if(!isAdmin(user) &&
+     Number(current.library_id)!==Number(user.library_id)){
+    return fail('You cannot edit members outside your assigned library.',403);
+  }
+
+  const d = await bodyJson(request);
+  if(!d) return fail('Invalid member data.');
+
+  const fullName = String(d.full_name || '').trim();
+  if(!fullName) return fail('Member name is required.');
+
+  const fields = [
+    'full_name','member_type','college_id','class_department',
+    'father_name','contact','email','expiry_date','address'
+  ];
+
+  const values = fields.map(f =>
+    d[f] === undefined ? current[f] : (d[f] === '' ? null : d[f])
+  );
+
+  await env.DB.prepare(`
+    UPDATE members SET
+      full_name=?,
+      member_type=?,
+      college_id=?,
+      class_department=?,
+      father_name=?,
+      contact=?,
+      email=?,
+      expiry_date=?,
+      address=?
+    WHERE id=?
+  `).bind(...values,id).run();
+
+  await audit(env,user,'update','members',id,'Member details updated.');
+
+  return json({ok:true});
+}
 if(method==='DELETE'&&id){
   const current=await env.DB.prepare(
     `SELECT * FROM ${table} WHERE id=?`
