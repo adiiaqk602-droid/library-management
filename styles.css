@@ -1892,3 +1892,46 @@ header.brand .logos p {
     grid-template-columns: repeat(2, minmax(0,1fr)) !important;
   }
 }
+/* AQK WHITE DASHBOARD NAVIGATION */
+
+#appPanel {
+  background: #f5f7fb !important;
+}
+
+#tabs {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+}
+
+#tabs button {
+  background: #ffffff !important;
+  color: #263548 !important;
+  border: none !important;
+  text-align: left !important;
+  border-radius: 7px !important;
+}
+
+#tabs button:hover,
+#tabs button.active {
+  background: #eaf1fb !important;
+  color: #174a87 !important;
+  border-left: 3px solid #3978c5 !important;
+}
+
+#dashboard {
+  background: #f5f7fb !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#dashboard .aqkHero,
+#dashboard .stats > *,
+#dashboard .dashboardChartBox,
+#dashboard .dashboardBox {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,.04) !important;
+}
