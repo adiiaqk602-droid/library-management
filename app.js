@@ -62,6 +62,8 @@ function fillSelects(){
   l => l.name,
   'All Libraries'
 );
+  setOptions('bookFilterLibrary', scopedLibraries(), l => l.name, 'All Libraries');
+setOptions('bookFilterCategory', state.categories, c => `${c.name} (${c.code})`, 'All Categories');
 $('categoryLibrary').onchange = fillCategoryParents;
     setOptions('bookCategory',state.categories,c=>`${c.name} (${c.code})`,'No category');setOptions('bookWing',state.wings,w=>w.name,'No wing');setOptions('bookRack',state.racks,r=>r.name,'No rack');setOptions('rackWing',state.wings,w=>w.name,'No wing');
   setOptions(
@@ -227,6 +229,11 @@ $('libraryCards').innerHTML = state.libraries.map(l => {
 }).join('');   $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
 const stockFilter = window.aqkStockFilter || 'all';
 
+const searchText = ($('bookFilterSearch')?.value || '').trim().toLowerCase();
+const libraryFilter = $('bookFilterLibrary')?.value || '';
+const categoryFilter = $('bookFilterCategory')?.value || '';
+const stockFilter = $('bookFilterStock')?.value || '';
+
 const filteredBooks = state.books.filter(b => {
   const copies = state.copies.filter(c =>
     Number(c.book_id) === Number(b.id)
@@ -236,24 +243,27 @@ const filteredBooks = state.books.filter(b => {
     String(c.status || '').trim().toLowerCase() === 'available'
   ).length;
 
-  console.log('AQK STOCK DEBUG:', {
-    book: b.title,
-    bookId: b.id,
-    totalCopies: copies.length,
-    copies: copies.map(c => ({
-      book_id: c.book_id,
-      status: c.status
-    })),
-    available: available
-  });
+  const issued = copies.filter(c =>
+    String(c.status || '').trim().toLowerCase() === 'issued'
+  ).length;
 
-  if (stockFilter === 'low') return available > 0 && available <= 5;
-  if (stockFilter === 'out') return available === 0;
+  const searchData = [
+    b.title,
+    b.author,
+    b.accession_no,
+    b.isbn
+  ].join(' ').toLowerCase();
+
+  if (searchText && !searchData.includes(searchText)) return false;
+  if (libraryFilter && String(b.library_id) !== libraryFilter) return false;
+  if (categoryFilter && String(b.category_id) !== categoryFilter) return false;
+
+  if (stockFilter === 'available' && available === 0) return false;
+  if (stockFilter === 'issued' && issued === 0) return false;
+  if (stockFilter === 'out' && available !== 0) return false;
 
   return true;
 });
-
-console.log('AQK STOCK FILTER:', stockFilter, filteredBooks.length);
 $('bookRows').innerHTML=filteredBooks.map(b=>{
   const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));
 
@@ -765,6 +775,20 @@ $('stats').addEventListener('click',e=>{
 });
   $('categorySearch')?.addEventListener('input', renderCategorySearch);
 $('categoryLibraryFilter')?.addEventListener('change', renderCategorySearch);document.querySelectorAll('[data-refresh]').forEach(b=>b.addEventListener('click',()=>refresh().catch(e=>message(e.message))));
+  // AQK BOOK FILTER EVENTS
+$('bookFilterSearch')?.addEventListener('input', render);
+$('bookFilterLibrary')?.addEventListener('change', render);
+$('bookFilterCategory')?.addEventListener('change', render);
+$('bookFilterStock')?.addEventListener('change', render);
+
+$('clearBookFilters')?.addEventListener('click', () => {
+  $('bookFilterSearch').value = '';
+  $('bookFilterLibrary').value = '';
+  $('bookFilterCategory').value = '';
+  $('bookFilterStock').value = '';
+  render();
+});
+// END AQK BOOK FILTER EVENTS
   // AQK: Select all books
 $('selectAllBooks')?.addEventListener('change', e => {
   document.querySelectorAll('.bookSelectCheckbox').forEach(box => {
