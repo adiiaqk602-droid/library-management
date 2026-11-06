@@ -537,7 +537,12 @@
 
 <!-- AQK DATE-WISE BOOK ENTRY REPORT -->
 <div class="tableWrap">
-  <h3>Book Entry Report — Date to Date</h3>
+ <div id="entryReportPrintHeader">
+  <h2>Dr A Q Khan School & College</h2>
+  <h3>Book Entry Report</h3>
+  <h4 id="entryReportLibraryName">All Libraries</h4>
+  <p id="entryReportDateRange">All Dates</p>
+</div>
 
   <div class="formGrid">
     <label>From Date
@@ -568,7 +573,9 @@
       Reset
     </button>
   </div>
-
+    <button type="button" id="printEntryReport">
+  Print Report
+  </button>
   <div id="entryReportSummary" class="stats"></div>
 
   <div class="tableWrap">
