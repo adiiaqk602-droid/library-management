@@ -670,8 +670,8 @@ $('reportStats').innerHTML=$('stats').innerHTML;
 // AQK Library-wise Books Chart
 const libraryChartData = state.libraries.map(l => ({
   name: l.name,
-  total: state.books.filter(
-    b => Number(b.library_id) === Number(l.id)
+  total: state.copies.filter(
+    c => Number(c.library_id) === Number(l.id)
   ).length
 }));
 
