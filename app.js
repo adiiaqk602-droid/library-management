@@ -190,6 +190,126 @@ function renderLibraryInventory() {
 }
 function render(){
     fillSelects();
+  
+// AQK DATE-WISE BOOK ENTRY REPORT
+const entryLibrary = $('entryReportLibrary');
+const entryTitle = $('entryReportTitle');
+
+if (entryLibrary && entryTitle) {
+  const oldLibrary = entryLibrary.value;
+  const oldTitle = entryTitle.value;
+
+  const reportLibraries = isAdmin()
+    ? state.libraries
+    : state.libraries.filter(l =>
+        state.books.some(b => Number(b.library_id) === Number(l.id))
+      );
+
+  entryLibrary.innerHTML =
+    '<option value="">All Libraries</option>' +
+    reportLibraries.map(l =>
+      `<option value="${Number(l.id)}">${safe(l.name)}</option>`
+    ).join('');
+
+  entryLibrary.value = oldLibrary;
+
+  const titleBooks = state.books.filter(b =>
+    !entryLibrary.value ||
+    Number(b.library_id) === Number(entryLibrary.value)
+  );
+
+  entryTitle.innerHTML =
+    '<option value="">All Books</option>' +
+    titleBooks.map(b =>
+      `<option value="${Number(b.id)}">${safe(b.title)}</option>`
+    ).join('');
+
+  entryTitle.value = oldTitle;
+
+  const showEntryReport = () => {
+    const from = $('entryReportFrom').value;
+    const to = $('entryReportTo').value;
+    const libraryId = entryLibrary.value;
+    const bookId = entryTitle.value;
+
+    if (from && to && from > to) {
+      message('From Date cannot be after To Date.');
+      return;
+    }
+
+    const rows = state.books.filter(b => {
+      const date = String(b.entry_date || b.date || '').slice(0, 10);
+
+      if (from && (!date || date < from)) return false;
+      if (to && (!date || date > to)) return false;
+
+      if (libraryId && Number(b.library_id) !== Number(libraryId)) return false;
+      if (bookId && Number(b.id) !== Number(bookId)) return false;
+
+      return true;
+    });
+
+    let totalCopies = 0;
+
+    $('entryReportRows').innerHTML = rows.map(b => {
+      const copies = state.copies.filter(c =>
+        Number(c.book_id) === Number(b.id)
+      ).length;
+
+      totalCopies += copies;
+
+      const library = state.libraries.find(l =>
+        Number(l.id) === Number(b.library_id)
+      );
+
+      return `
+        <tr>
+          <td>${safe(b.entry_date || b.date || '—')}</td>
+          <td>${safe(b.title || '—')}</td>
+          <td>${safe(b.author || '—')}</td>
+          <td>${safe(library?.name || '—')}</td>
+          <td>${copies}</td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="5">No records found.</td></tr>';
+
+    $('entryReportSummary').innerHTML = `
+      <div class="stat">
+        <span>Book Records</span>
+        <strong>${rows.length}</strong>
+      </div>
+      <div class="stat">
+        <span>Total Physical Copies</span>
+        <strong>${totalCopies}</strong>
+      </div>
+    `;
+  };
+
+  entryLibrary.onchange = () => {
+    entryTitle.value = '';
+    const books = state.books.filter(b =>
+      !entryLibrary.value ||
+      Number(b.library_id) === Number(entryLibrary.value)
+    );
+
+    entryTitle.innerHTML =
+      '<option value="">All Books</option>' +
+      books.map(b =>
+        `<option value="${Number(b.id)}">${safe(b.title)}</option>`
+      ).join('');
+  };
+
+  $('applyEntryReport').onclick = showEntryReport;
+
+  $('resetEntryReport').onclick = () => {
+    $('entryReportFrom').value = '';
+    $('entryReportTo').value = '';
+    entryLibrary.value = '';
+    entryTitle.value = '';
+    showEntryReport();
+  };
+}
+
 $('libraryCards').innerHTML = state.libraries.map(l => {
   const books = state.books.filter(
     b => Number(b.library_id) === Number(l.id)
