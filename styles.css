@@ -2185,3 +2185,105 @@ header.brand .logos p {
     grid-template-columns: 1fr !important;
   }
 }
+/* AQK BOOK ENTRY REPORT PRINT DESIGN */
+@media print {
+
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #reports,
+  #reports * {
+    visibility: visible !important;
+  }
+
+  #reports {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  #reports > * {
+    display: none !important;
+  }
+
+  #reports > .tableWrap:has(#entryReportPrintHeader) {
+    display: block !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  #entryReportPrintHeader {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 20px;
+    color: black !important;
+  }
+
+  #entryReportPrintHeader h2 {
+    font-size: 21px;
+    margin: 0 0 5px;
+  }
+
+  #entryReportPrintHeader h3 {
+    font-size: 18px;
+    margin: 5px 0;
+  }
+
+  #entryReportPrintHeader h4 {
+    font-size: 16px;
+    margin: 5px 0;
+  }
+
+  #entryReportPrintHeader p {
+    font-size: 12px;
+    margin: 5px 0 15px;
+  }
+
+  #entryReportFrom,
+  #entryReportTo,
+  #entryReportLibrary,
+  #entryReportTitle,
+  #applyEntryReport,
+  #resetEntryReport,
+  #printEntryReport,
+  label {
+    display: none !important;
+  }
+
+  #entryReportSummary {
+    display: flex !important;
+    margin: 10px 0;
+  }
+
+  #reports .tableWrap {
+    overflow: visible !important;
+  }
+
+  #reports table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+  }
+
+  #reports th,
+  #reports td {
+    border: 1px solid black !important;
+    padding: 8px !important;
+    color: black !important;
+    text-align: left;
+  }
+
+  #reports th {
+    font-weight: bold;
+    background: #eeeeee !important;
+  }
+}
