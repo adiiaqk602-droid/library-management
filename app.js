@@ -302,6 +302,208 @@ if (entryLibrary && entryTitle) {
   $('applyEntryReport').onclick = showEntryReport;
 // AQK BOOK ENTRY REPORT PRINT
 $('printEntryReport').onclick = () => {
+
+  const libraryId = entryLibrary.value;
+
+  const library = state.libraries.find(l =>
+    Number(l.id) === Number(libraryId)
+  );
+
+  const from = $('entryReportFrom').value || 'All Dates';
+  const to = $('entryReportTo').value || 'All Dates';
+
+  const selectedTitle =
+    entryTitle.selectedOptions[0]?.textContent || 'All Books';
+
+  const rows = $('entryReportRows').innerHTML;
+  const summary = $('entryReportSummary').innerHTML;
+
+  const w = window.open('', '_blank');
+
+  if (!w) {
+    message('Please allow pop-ups to print.');
+    return;
+  }
+
+  w.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>AQK Book Entry Report</title>
+
+      <style id="pageStyle">
+        @page {
+          size: A4 portrait;
+          margin: 12mm;
+        }
+      </style>
+
+      <style>
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #222;
+          margin: 15px;
+        }
+
+        .toolbar {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        button {
+          padding: 9px 16px;
+          margin: 4px;
+          cursor: pointer;
+          background: #6d5032;
+          color: white;
+          border: 0;
+          border-radius: 4px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        th, td {
+          border: 1px solid #555;
+          padding: 7px;
+          font-size: 11px;
+          text-align: left;
+        }
+
+        th {
+          background: #eee4d1;
+        }
+
+        .schoolHeading {
+          text-align: center;
+          padding: 8px;
+          border-bottom: 2px solid #6d5032;
+        }
+
+        .schoolHeading h2 {
+          margin: 3px;
+          font-size: 19px;
+        }
+
+        .schoolHeading h3 {
+          margin: 5px;
+          font-size: 15px;
+        }
+
+        .schoolHeading p {
+          margin: 4px;
+          font-size: 11px;
+          font-weight: normal;
+        }
+
+        .summary {
+          display: flex;
+          justify-content: space-around;
+          margin: 12px 0;
+          font-size: 12px;
+        }
+
+        tr {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        @media print {
+          body {
+            margin: 0;
+          }
+
+          .toolbar {
+            display: none !important;
+          }
+
+          .summary {
+            display: none;
+          }
+
+          th {
+            background: #eee4d1 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+
+      <div class="toolbar">
+        <button onclick="setPage('portrait')">
+          A4 Portrait
+        </button>
+
+        <button onclick="setPage('landscape')">
+          A4 Landscape
+        </button>
+
+        <button onclick="window.print()">
+          Print Report
+        </button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th colspan="5">
+              <div class="schoolHeading">
+                <h2>Dr A Q Khan School &amp; College</h2>
+                <p>Bahria Town Phase-8</p>
+                <h3>AQK Library Management System</h3>
+                <h3>BOOK ENTRY REPORT</h3>
+                <p>${safe(library?.name || 'All Libraries')}</p>
+                <p>From: ${safe(from)} | To: ${safe(to)}</p>
+                <p>Book: ${safe(selectedTitle)}</p>
+              </div>
+            </th>
+          </tr>
+
+          <tr>
+            <th>Entry Date</th>
+            <th>Book Title</th>
+            <th>Author</th>
+            <th>Library</th>
+            <th>Total Copies</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <div class="summary">
+        ${summary}
+      </div>
+
+      <script>
+        function setPage(mode) {
+          document.getElementById('pageStyle').textContent =
+            '@page { size: A4 ' + mode + '; margin: 12mm; }';
+        }
+      <\/script>
+
+    </body>
+    </html>
+  `);
+
+  w.document.close();
+};
   const libraryId = entryLibrary.value;
   const library = state.libraries.find(l =>
     Number(l.id) === Number(libraryId)
