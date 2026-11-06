@@ -1124,6 +1124,62 @@ if(loanDeleteMatch && method==='DELETE'){
   if(path==='loans'&&method==='GET'){
     const rows=await env.DB.prepare(`SELECT l.*,m.full_name,m.member_no,bc.copy_code,b.title,b.price,lib.name library_name FROM loans l JOIN members m ON m.id=l.member_id JOIN book_copies bc ON bc.id=l.copy_id JOIN books b ON b.id=bc.book_id JOIN libraries lib ON lib.id=l.library_id WHERE 1=1${isAdmin(user)?'':' AND l.library_id=?'} ORDER BY l.created_at DESC LIMIT 1000`).bind(...(isAdmin(user)?[]:[user.library_id])).all();return json({data:rows.results||[]});
   }
+  
+// AQK DELETE ONE PHYSICAL COPY - SUPER ADMIN ONLY
+const copyDeleteMatch = path.match(/^copies\/(\d+)$/);
+
+if(copyDeleteMatch && method==='DELETE'){
+
+  if(!isAdmin(user))
+    return fail('Only Super Admin can delete physical copies.',403);
+
+  const copyId = Number(copyDeleteMatch[1]);
+
+  const copy = await env.DB.prepare(`
+    SELECT bc.id,bc.book_id,b.library_id,b.title
+    FROM book_copies bc
+    JOIN books b ON b.id=bc.book_id
+    WHERE bc.id=?
+  `).bind(copyId).first();
+
+  if(!copy)
+    return fail('Physical copy not found.',404);
+
+  const loans = await env.DB.prepare(
+    'SELECT COUNT(*) AS total FROM loans WHERE copy_id=?'
+  ).bind(copyId).first();
+
+  const movements = await env.DB.prepare(
+    'SELECT COUNT(*) AS total FROM inventory_movements WHERE copy_id=?'
+  ).bind(copyId).first();
+
+  const verification = await env.DB.prepare(
+    'SELECT COUNT(*) AS total FROM stock_verification_items WHERE copy_id=?'
+  ).bind(copyId).first();
+
+  if(
+    Number(loans?.total||0)>0 ||
+    Number(movements?.total||0)>0 ||
+    Number(verification?.total||0)>0
+  ){
+    return fail(
+      'This copy has history or issue records. It cannot be deleted.',
+      409
+    );
+  }
+
+  await env.DB.prepare(
+    'DELETE FROM book_copies WHERE id=?'
+  ).bind(copyId).run();
+
+  await audit(
+    env,user,'delete','book_copies',copyId,
+    `One physical copy deleted from book ${copy.book_id}.`
+  );
+
+  return json({ok:true});
+}
+
   if(path==='copies'&&method==='GET'){
     const rows=await env.DB.prepare(`SELECT c.*,b.title,b.author,b.price,b.library_id,lib.name library_name FROM book_copies c JOIN books b ON b.id=c.book_id JOIN libraries lib ON lib.id=b.library_id WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'} ORDER BY b.title,c.copy_code`).bind(...(isAdmin(user)?[]:[user.library_id])).all();return json({data:rows.results||[]});
   }
