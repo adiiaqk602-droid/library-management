@@ -434,14 +434,14 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
 </td>
 
       <td>
-        ${g.available === 0
-          ? '<b style="color:#dc2626">0</b>'
-          : g.available <= 5
-            ? `<b style="color:#d97706">${g.available}</b>`
-            : `<b style="color:#16a34a">${g.available}</b>`
-        }
-      </td>
-
+  ${g.available === 0
+    ? '<b style="color:#dc2626">0</b>'
+    : g.available <= 5
+      ? `<b style="color:#d97706">${g.available}</b>`
+      : `<b style="color:#16a34a">${g.available}</b>`
+  }
+  <div class="muted small">Available Balance</div>
+</td>
       <td>
   <b>${g.issued}</b>
   <div class="muted small">Issued</div>
@@ -467,7 +467,7 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
                 <th>Serial No.</th>
                 <th>Accession No.</th>
                 <th>Title</th>
-                <th>Copies</th>
+                <th>Total Books</th>
                 <th>Actions</th>
               </tr>
             </thead>
