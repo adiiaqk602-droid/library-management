@@ -227,87 +227,219 @@ $('libraryCards').innerHTML = state.libraries.map(l => {
     </div>
   `;
 }).join('');   $('libraryTable').innerHTML=`<table><thead><tr><th>Library</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>${state.libraries.map(l=>`<tr><td>${safe(l.name)}</td><td>${safe(l.code)}</td><td>${l.active?'Active':'Inactive'}</td><td>${isAdmin()?`<button class="actionBtn" onclick="window.editAQKLibrary(${Number(l.id)})">Rename</button>`:'—'}</td></tr>`).join('')}</tbody></table>`;
-const stockFilter = window.aqkStockFilter || 'all';
+
+// AQK SMART BOOK CATALOGUE
+const stockFilter = $('bookFilterStock')?.value || 'all';
 
 const searchText = ($('bookFilterSearch')?.value || '').trim().toLowerCase();
 const libraryFilter = $('bookFilterLibrary')?.value || '';
 const categoryFilter = $('bookFilterCategory')?.value || '';
-const filteredBooks = state.books.filter(b => {
-  const copies = state.copies.filter(c =>
-    Number(c.book_id) === Number(b.id)
+
+// Group duplicate books without mixing libraries or categories
+const bookGroups = new Map();
+
+state.books.forEach(b => {
+  const title = String(b.title || '').trim().toLowerCase();
+  const author = String(b.author || '').trim().toLowerCase();
+  const isbn = String(b.isbn || '').replace(/[\s-]/g, '').toLowerCase();
+  const edition = String(b.edition || '').trim().toLowerCase();
+  const year = String(b.publication_year || '').trim();
+
+  const identity = isbn
+    ? 'isbn:' + isbn
+    : 'title:' + title + '|author:' + author + '|edition:' + edition + '|year:' + year;
+
+  const groupKey = [
+    Number(b.library_id || 0),
+    Number(b.category_id || 0),
+    identity
+  ].join('|');
+
+  if (!bookGroups.has(groupKey)) {
+    bookGroups.set(groupKey, []);
+  }
+
+  bookGroups.get(groupKey).push(b);
+});
+
+const filteredGroups = [...bookGroups.values()]
+  .map(group => {
+    const bookIds = group.map(b => Number(b.id));
+
+    const copies = state.copies.filter(c =>
+      bookIds.includes(Number(c.book_id))
+    );
+
+    const countStatus = status =>
+      copies.filter(c =>
+        String(c.status || '').trim().toLowerCase() === status
+      ).length;
+
+    return {
+      books: group,
+      copies,
+      total: copies.length,
+      available: countStatus('available'),
+      issued: countStatus('issued'),
+      damaged: countStatus('damaged'),
+      lost: countStatus('lost')
+    };
+  })
+  .filter(g => {
+    const first = g.books[0];
+
+    const searchData = g.books.map(b => [
+      b.title,
+      b.author,
+      b.accession_no,
+      b.isbn,
+      b.ser_no
+    ].join(' ')).join(' ').toLowerCase();
+
+    if (searchText && !searchData.includes(searchText)) return false;
+
+    if (libraryFilter &&
+        String(first.library_id) !== libraryFilter) return false;
+
+    if (categoryFilter &&
+        String(first.category_id) !== categoryFilter) return false;
+
+    if (stockFilter === 'available' && g.available === 0) return false;
+    if (stockFilter === 'issued' && g.issued === 0) return false;
+    if (stockFilter === 'out' && g.available !== 0) return false;
+
+    return true;
+  })
+  .sort((a, b) =>
+    String(a.books[0].ser_no || '')
+      .localeCompare(String(b.books[0].ser_no || ''), undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
   );
 
-  const available = copies.filter(c =>
-    String(c.status || '').trim().toLowerCase() === 'available'
-  ).length;
+window.toggleAQKBookGroup = groupId => {
+  const row = document.querySelector(
+    `[data-aqk-book-details="${groupId}"]`
+  );
 
-  const issued = copies.filter(c =>
-    String(c.status || '').trim().toLowerCase() === 'issued'
-  ).length;
+  if (row) {
+    row.style.display =
+      row.style.display === 'none' ? 'table-row' : 'none';
+  }
+};
 
-  const searchData = [
-    b.title,
-    b.author,
-    b.accession_no,
-    b.isbn
-  ].join(' ').toLowerCase();
+$('bookRows').innerHTML = filteredGroups.map((g, index) => {
+  const first = g.books[0];
+  const groupId = g.books.map(b => Number(b.id)).join('-');
 
-  if (searchText && !searchData.includes(searchText)) return false;
-  if (libraryFilter && String(b.library_id) !== libraryFilter) return false;
-  if (categoryFilter && String(b.category_id) !== categoryFilter) return false;
+  const library = state.libraries.find(
+    l => Number(l.id) === Number(first.library_id)
+  );
 
-  if (stockFilter === 'available' && available === 0) return false;
-  if (stockFilter === 'issued' && issued === 0) return false;
-  if (stockFilter === 'out' && available !== 0) return false;
+  const category = state.categories.find(
+    c => Number(c.id) === Number(first.category_id)
+  );
 
-  return true;
-});
-$('bookRows').innerHTML=filteredBooks.map(b=>{
-  const cp=state.copies.filter(c=>Number(c.book_id)===Number(b.id));
+  const details = g.books.map(b => {
+    const bookCopies = g.copies.filter(
+      c => Number(c.book_id) === Number(b.id)
+    );
 
-  const available = cp.filter(c =>
-    String(c.status || '').toLowerCase() === 'available'
-  ).length;
-  console.log('AQK STOCK DEBUG:', {
-  book: b.title,
-  bookId: b.id,
-  copies: cp.map(c => ({
-    book_id: c.book_id,
-    status: c.status
-  }))
-});
+    return `
+      <tr>
+        <td>${safe(b.ser_no || '—')}</td>
+        <td>${safe(b.accession_no || '—')}</td>
+        <td>${safe(b.title || '')}</td>
+        <td>${bookCopies.length}</td>
+        <td>
+          <button class="actionBtn"
+            onclick="window.editAQKBook(${Number(b.id)})">
+            Edit
+          </button>
 
-  return `<tr>
-    <td><input type="checkbox" class="bookSelectCheckbox" data-book-id="${Number(b.id)}"></td>
-    <td>${safe(b.ser_no||'—')}<br><b>${safe(b.title)}</b><div class="muted small">Tag: ${safe(b.tag_id||'—')}</div></td>
-    <td>${safe(b.author||'—')}</td>
-    <td>${safe(state.libraries.find(l=>l.id==b.library_id)?.name||'')}</td>
-    <td>${safe(state.categories.find(c=>c.id==b.category_id)?.name||'—')}</td>
-    <td>${cp.length}</td>
-    <td>
-      ${available === 0
-        ? '<b style="color:#dc2626">Out of Stock (0)</b>'
-        : available <= 5
-          ? `<b style="color:#d97706">Low Stock (${available})</b>`
-          : `<b style="color:#16a34a">Normal (${available})</b>`
-      }
-    </td>
-    <td>${cp.filter(c=>String(c.status||'').toLowerCase()==='issued').length}</td>
-    <td>
-  <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
-  <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
+          <button class="actionBtn"
+            onclick="window.printAQKLabels(${Number(b.id)})">
+            Print IDs
+          </button>
 
-  ${isAdmin() ? `
-    <button class="actionBtn danger"
-      onclick="window.deleteAQKRecord('books', ${Number(b.id)})">
-      Delete
-    </button>
-  ` : ''}
-</td>
-  </tr>`;
-}).join('')||'<tr><td colspan="9">No books found for this stock filter.</td></tr>';
+          ${isAdmin() ? `
+            <button class="actionBtn danger"
+              onclick="window.deleteAQKRecord('books', ${Number(b.id)})">
+              Delete
+            </button>
+          ` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <tr>
+      <td>
+        <input type="checkbox"
+          class="bookSelectCheckbox"
+          data-book-ids="${groupId}">
+      </td>
+
+      <td>
+        <b>${safe(first.ser_no || '—')} / ${safe(first.title || '')}</b>
+        <div class="muted small">
+          ${g.books.length} book record(s)
+        </div>
+      </td>
+
+      <td>${safe(first.author || '—')}</td>
+      <td>${safe(library?.name || '—')}</td>
+      <td>${safe(category?.name || '—')}</td>
+      <td><b>${g.total}</b></td>
+
+      <td>
+        ${g.available === 0
+          ? '<b style="color:#dc2626">0</b>'
+          : g.available <= 5
+            ? `<b style="color:#d97706">${g.available}</b>`
+            : `<b style="color:#16a34a">${g.available}</b>`
+        }
+      </td>
+
+      <td>${g.issued}</td>
+      <td>${g.damaged}</td>
+      <td>${g.lost}</td>
+
+      <td>
+        <button class="actionBtn"
+          onclick="window.toggleAQKBookGroup('${groupId}')">
+          View Details
+        </button>
+      </td>
+    </tr>
+
+    <tr data-aqk-book-details="${groupId}" style="display:none">
+      <td colspan="11">
+        <div class="tableWrap">
+          <b>Individual Book Records</b>
+          <table>
+            <thead>
+              <tr>
+                <th>Serial No.</th>
+                <th>Accession No.</th>
+                <th>Title</th>
+                <th>Copies</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>${details}</tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+  `;
+}).join('') || '<tr><td colspan="11">No books found.</td></tr>';
 
 renderCategorySearch();
+// END AQK SMART BOOK CATALOGUE
+
 $('wingRows').innerHTML = state.wings.map(w => `
   <tr>
     <td>${safe(w.name)}</td>
@@ -825,11 +957,19 @@ $('bookRows')?.addEventListener('change', e => {
 });
   // AQK: Print selected books
 $('printSelectedBooks')?.addEventListener('click', () => {
-  const ids = [
-    ...document.querySelectorAll('.bookSelectCheckbox:checked')
-  ]
-    .map(box => Number(box.dataset.bookId))
-    .filter(id => Number.isFinite(id));
+
+const ids = [
+  ...new Set(
+    [...document.querySelectorAll('.bookSelectCheckbox:checked')]
+      .flatMap(box =>
+        (box.dataset.bookIds || '')
+          .split('-')
+          .map(Number)
+      )
+      .filter(id => Number.isFinite(id) && id > 0)
+  )
+];
+
 
   if (!ids.length) {
     message('Please select at least one book.');
