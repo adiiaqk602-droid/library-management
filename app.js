@@ -428,7 +428,10 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
       <td>${safe(first.author || '—')}</td>
       <td>${safe(library?.name || '—')}</td>
       <td>${safe(category?.name || '—')}</td>
-      <td><b>${g.total}</b></td>
+      <td>
+  <b>${g.total}</b>
+  <div class="muted small">Total Books</div>
+</td>
 
       <td>
         ${g.available === 0
@@ -439,7 +442,10 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
         }
       </td>
 
-      <td>${g.issued}</td>
+      <td>
+  <b>${g.issued}</b>
+  <div class="muted small">Issued</div>
+</td>
       <td>${g.damaged}</td>
       <td>${g.lost}</td>
 
