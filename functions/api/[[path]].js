@@ -893,18 +893,323 @@ return json({data:rows.results||[]});
     });
   }
   if(path==='reports'&&method==='GET'){
-    const sc=scopeSql(user,'l');const [bookCount,copyCount,memberCount,activeLoans,overdue,fines,categoryRows,libraryRows,inventoryRows]=await Promise.all([
-      env.DB.prepare(`SELECT COUNT(*) n FROM books b WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
-      env.DB.prepare(`SELECT COUNT(*) n FROM book_copies c JOIN books b ON b.id=c.book_id WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
-      env.DB.prepare(`SELECT COUNT(*) n FROM members WHERE 1=1${isAdmin(user)?'':' AND library_id=?'}`).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
-      env.DB.prepare(`SELECT COUNT(*) n FROM loans l WHERE l.status='issued'${sc.sql}`).bind(...sc.binds).first(),
-      env.DB.prepare(`SELECT COUNT(*) n FROM loans l WHERE l.status='issued' AND l.due_date<date('now')${sc.sql}`).bind(...sc.binds).first(),
-      env.DB.prepare(`SELECT COALESCE(SUM(fine_amount-fine_paid),0) n FROM loans l WHERE 1=1${sc.sql}`).bind(...sc.binds).first(),
-      env.DB.prepare(`SELECT COALESCE(c.name,'Uncategorised') label,COUNT(b.id) total FROM books b LEFT JOIN categories c ON c.id=b.category_id WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'} GROUP BY c.name ORDER BY total DESC`).bind(...(isAdmin(user)?[]:[user.library_id])).all(),
-      env.DB.prepare(`SELECT l.name label,COUNT(b.id) total FROM libraries l LEFT JOIN books b ON b.library_id=l.id ${isAdmin(user)?'':'WHERE l.id=?'} GROUP BY l.id ORDER BY l.name`).bind(...(isAdmin(user)?[]:[user.library_id])).all(),
-      env.DB.prepare(`SELECT bc.stock_type label,bc.status status,COUNT(*) total FROM book_copies bc JOIN books b ON b.id=bc.book_id WHERE 1=1${isAdmin(user)?'':' AND b.library_id=?'} GROUP BY bc.stock_type,bc.status ORDER BY bc.stock_type,bc.status`).bind(...(isAdmin(user)?[]:[user.library_id])).all()
-    ]);return json({stats:{books:bookCount.n,copies:copyCount.n,members:memberCount.n,issued:activeLoans.n,overdue:overdue.n,outstandingFine:fines.n},byCategory:categoryRows.results||[],byLibrary:libraryRows.results||[],inventory:inventoryRows.results||[]});
-  }
+
+  const bookFilter = isAdmin(user) ? '' : ' AND b.library_id=?';
+  const bookBinds = isAdmin(user) ? [] : [user.library_id];
+
+  const loanScope = scopeSql(user,'l');
+
+  const libraryFilter = isAdmin(user) ? '' : 'WHERE lib.id=?';
+  const libraryBinds = isAdmin(user) ? [] : [user.library_id];
+
+  const [
+    bookCount,
+    copyCount,
+    memberCount,
+    activeLoans,
+    overdue,
+    fines,
+    categoryRows,
+    libraryRows,
+    inventoryRows,
+    categoryValueRows,
+    categoryLocationRows,
+    categoryIssueRows,
+    mostIssuedRows,
+    leastIssuedRows,
+    academicYearRows,
+    stockTypeRows,
+    libraryValueRows,
+    rackRows,
+    monthlyRows
+  ] = await Promise.all([
+
+    // Basic statistics
+    env.DB.prepare(`
+      SELECT COUNT(*) n
+      FROM books b
+      WHERE 1=1${bookFilter}
+    `).bind(...bookBinds).first(),
+
+    env.DB.prepare(`
+      SELECT COUNT(*) n
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      WHERE 1=1${bookFilter}
+    `).bind(...bookBinds).first(),
+
+    env.DB.prepare(`
+      SELECT COUNT(*) n
+      FROM members
+      WHERE 1=1${isAdmin(user)?'':' AND library_id=?'}
+    `).bind(...(isAdmin(user)?[]:[user.library_id])).first(),
+
+    env.DB.prepare(`
+      SELECT COUNT(*) n
+      FROM loans l
+      WHERE l.status='issued'${loanScope.sql}
+    `).bind(...loanScope.binds).first(),
+
+    env.DB.prepare(`
+      SELECT COUNT(*) n
+      FROM loans l
+      WHERE l.status='issued'
+      AND l.due_date<date('now')${loanScope.sql}
+    `).bind(...loanScope.binds).first(),
+
+    env.DB.prepare(`
+      SELECT COALESCE(SUM(fine_amount-fine_paid),0) n
+      FROM loans l
+      WHERE 1=1${loanScope.sql}
+    `).bind(...loanScope.binds).first(),
+
+    // Existing category-wise books
+    env.DB.prepare(`
+      SELECT
+        COALESCE(c.name,'Uncategorised') label,
+        COUNT(b.id) total
+      FROM books b
+      LEFT JOIN categories c ON c.id=b.category_id
+      WHERE 1=1${bookFilter}
+      GROUP BY c.name
+      ORDER BY total DESC
+    `).bind(...bookBinds).all(),
+
+    // Existing library-wise books
+    env.DB.prepare(`
+      SELECT lib.name label,COUNT(b.id) total
+      FROM libraries lib
+      LEFT JOIN books b ON b.library_id=lib.id
+      ${libraryFilter}
+      GROUP BY lib.id
+      ORDER BY lib.name
+    `).bind(...libraryBinds).all(),
+
+    // Existing inventory report
+    env.DB.prepare(`
+      SELECT
+        bc.stock_type label,
+        bc.status status,
+        COUNT(*) total
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      WHERE 1=1${bookFilter}
+      GROUP BY bc.stock_type,bc.status
+      ORDER BY bc.stock_type,bc.status
+    `).bind(...bookBinds).all(),
+
+    // 1. Category-wise Stock Value
+    env.DB.prepare(`
+      SELECT
+        COALESCE(c.name,'Uncategorised') label,
+        COUNT(DISTINCT b.id) titles,
+        COUNT(bc.id) copies,
+        COALESCE(SUM(
+          CASE WHEN bc.id IS NOT NULL THEN b.price ELSE 0 END
+        ),0) stock_value
+      FROM books b
+      LEFT JOIN categories c ON c.id=b.category_id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      WHERE 1=1${bookFilter}
+      GROUP BY c.name
+      ORDER BY stock_value DESC
+    `).bind(...bookBinds).all(),
+
+    // 2. Category-wise Location
+    env.DB.prepare(`
+      SELECT
+        COALESCE(c.name,'Uncategorised') category,
+        lib.name library,
+        COALESCE(w.name,'Unassigned') wing,
+        COALESCE(r.name,'Unassigned') rack,
+        COUNT(DISTINCT b.id) titles,
+        COUNT(bc.id) copies
+      FROM books b
+      LEFT JOIN categories c ON c.id=b.category_id
+      JOIN libraries lib ON lib.id=b.library_id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      LEFT JOIN racks r ON r.id=COALESCE(bc.rack_id,b.rack_id)
+      LEFT JOIN wings w ON w.id=COALESCE(b.wing_id,r.wing_id)
+      WHERE 1=1${bookFilter}
+      GROUP BY c.name,lib.id,w.id,r.id
+      ORDER BY c.name,lib.name,w.name,r.name
+    `).bind(...bookBinds).all(),
+
+    // 3. Category-wise Issue Report
+    env.DB.prepare(`
+      SELECT
+        COALESCE(c.name,'Uncategorised') label,
+        COUNT(l.id) total_issues,
+        SUM(CASE WHEN l.status='issued' THEN 1 ELSE 0 END) currently_issued,
+        SUM(CASE WHEN l.status='returned' THEN 1 ELSE 0 END) returned,
+        SUM(CASE
+          WHEN l.status='issued' AND l.due_date<date('now')
+          THEN 1 ELSE 0
+        END) overdue
+      FROM books b
+      LEFT JOIN categories c ON c.id=b.category_id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      LEFT JOIN loans l ON l.copy_id=bc.id
+      WHERE 1=1${bookFilter}
+      GROUP BY c.name
+      ORDER BY total_issues DESC
+    `).bind(...bookBinds).all(),
+
+    // 4. Most Issued Categories
+    env.DB.prepare(`
+      SELECT
+        COALESCE(c.name,'Uncategorised') label,
+        COUNT(l.id) total_issues
+      FROM books b
+      LEFT JOIN categories c ON c.id=b.category_id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      LEFT JOIN loans l ON l.copy_id=bc.id
+      WHERE 1=1${bookFilter}
+      GROUP BY c.name
+      ORDER BY total_issues DESC
+      LIMIT 10
+    `).bind(...bookBinds).all(),
+
+    // 5. Least Issued Categories
+    env.DB.prepare(`
+      SELECT
+        COALESCE(c.name,'Uncategorised') label,
+        COUNT(l.id) total_issues
+      FROM books b
+      LEFT JOIN categories c ON c.id=b.category_id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      LEFT JOIN loans l ON l.copy_id=bc.id
+      WHERE 1=1${bookFilter}
+      GROUP BY c.name
+      ORDER BY total_issues ASC
+      LIMIT 10
+    `).bind(...bookBinds).all(),
+
+    // 6. Academic Year-wise Books
+    env.DB.prepare(`
+      SELECT
+        COALESCE(NULLIF(b.academic_year,''),'Not Set') label,
+        COUNT(DISTINCT b.id) titles,
+        COUNT(bc.id) copies
+      FROM books b
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      WHERE 1=1${bookFilter}
+      GROUP BY b.academic_year
+      ORDER BY b.academic_year
+    `).bind(...bookBinds).all(),
+
+    // 7. New / Old / Donate Books
+    env.DB.prepare(`
+      SELECT
+        bc.stock_type label,
+        bc.status status,
+        COUNT(*) total,
+        COALESCE(SUM(b.price),0) stock_value
+      FROM book_copies bc
+      JOIN books b ON b.id=bc.book_id
+      WHERE 1=1${bookFilter}
+      GROUP BY bc.stock_type,bc.status
+      ORDER BY bc.stock_type,bc.status
+    `).bind(...bookBinds).all(),
+
+    // 8. Library-wise Stock Value
+    env.DB.prepare(`
+      SELECT
+        lib.name label,
+        COUNT(DISTINCT b.id) titles,
+        COUNT(bc.id) copies,
+        COALESCE(SUM(
+          CASE WHEN bc.id IS NOT NULL THEN b.price ELSE 0 END
+        ),0) stock_value
+      FROM libraries lib
+      LEFT JOIN books b ON b.library_id=lib.id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      ${libraryFilter}
+      GROUP BY lib.id
+      ORDER BY lib.name
+    `).bind(...libraryBinds).all(),
+
+    // 9. Rack-wise Book Report
+    env.DB.prepare(`
+      SELECT
+        lib.name library,
+        COALESCE(w.name,'Unassigned') wing,
+        COALESCE(r.name,'Unassigned') rack,
+        COUNT(DISTINCT b.id) titles,
+        COUNT(bc.id) copies,
+        SUM(CASE WHEN bc.status='available' THEN 1 ELSE 0 END) available,
+        SUM(CASE WHEN bc.status='issued' THEN 1 ELSE 0 END) issued,
+        COALESCE(SUM(
+          CASE WHEN bc.id IS NOT NULL THEN b.price ELSE 0 END
+        ),0) stock_value
+      FROM books b
+      JOIN libraries lib ON lib.id=b.library_id
+      LEFT JOIN book_copies bc ON bc.book_id=b.id
+      LEFT JOIN racks r ON r.id=COALESCE(bc.rack_id,b.rack_id)
+      LEFT JOIN wings w ON w.id=COALESCE(b.wing_id,r.wing_id)
+      WHERE 1=1${bookFilter}
+      GROUP BY lib.id,w.id,r.id
+      ORDER BY lib.name,w.name,r.name
+    `).bind(...bookBinds).all(),
+
+    // 10. Monthly Issue & Return Report
+    env.DB.prepare(`
+      SELECT
+        month,
+        SUM(issued) issued,
+        SUM(returned) returned
+      FROM (
+        SELECT
+          strftime('%Y-%m',l.issue_date) month,
+          COUNT(*) issued,
+          0 returned
+        FROM loans l
+        WHERE l.issue_date IS NOT NULL${loanScope.sql}
+        GROUP BY strftime('%Y-%m',l.issue_date)
+
+        UNION ALL
+
+        SELECT
+          strftime('%Y-%m',l.return_date) month,
+          0 issued,
+          COUNT(*) returned
+        FROM loans l
+        WHERE l.return_date IS NOT NULL${loanScope.sql}
+        GROUP BY strftime('%Y-%m',l.return_date)
+      )
+      GROUP BY month
+      ORDER BY month DESC
+      LIMIT 24
+    `).bind(...loanScope.binds,...loanScope.binds).all()
+
+  ]);
+
+  return json({
+    stats:{
+      books:bookCount.n,
+      copies:copyCount.n,
+      members:memberCount.n,
+      issued:activeLoans.n,
+      overdue:overdue.n,
+      outstandingFine:fines.n
+    },
+
+    byCategory:categoryRows.results||[],
+    byLibrary:libraryRows.results||[],
+    inventory:inventoryRows.results||[],
+
+    byCategoryValue:categoryValueRows.results||[],
+    byCategoryLocation:categoryLocationRows.results||[],
+    byCategoryIssues:categoryIssueRows.results||[],
+    mostIssuedCategories:mostIssuedRows.results||[],
+    leastIssuedCategories:leastIssuedRows.results||[],
+    byAcademicYear:academicYearRows.results||[],
+    byStockType:stockTypeRows.results||[],
+    byLibraryValue:libraryValueRows.results||[],
+    byRack:rackRows.results||[],
+    monthlyIssuesReturns:monthlyRows.results||[]
+  });
+}
   // AQK ISSUE EDIT
 const issueEditMatch = path.match(/^loans\/(\d+)$/);
 
