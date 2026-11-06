@@ -300,7 +300,24 @@ if (entryLibrary && entryTitle) {
   };
 
   $('applyEntryReport').onclick = showEntryReport;
+// AQK BOOK ENTRY REPORT PRINT
+$('printEntryReport').onclick = () => {
+  const libraryId = entryLibrary.value;
+  const library = state.libraries.find(l =>
+    Number(l.id) === Number(libraryId)
+  );
 
+  $('entryReportLibraryName').textContent =
+    library ? library.name : 'All Libraries';
+
+  const from = $('entryReportFrom').value || 'All Dates';
+  const to = $('entryReportTo').value || 'All Dates';
+
+  $('entryReportDateRange').textContent =
+    `From: ${from}  |  To: ${to}`;
+
+  window.print();
+};
   $('resetEntryReport').onclick = () => {
     $('entryReportFrom').value = '';
     $('entryReportTo').value = '';
