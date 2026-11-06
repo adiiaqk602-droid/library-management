@@ -317,7 +317,27 @@ const filteredGroups = [...bookGroups.values()]
         sensitivity: 'base'
       })
   );
+window.deleteAQKCopy = async copyId => {
+  if (!isAdmin()) {
+    message('Only Super Admin can delete physical copies.');
+    return;
+  }
 
+  if (!confirm('Kya aap sirf ye physical copy delete karna chahte hain?')) {
+    return;
+  }
+
+  try {
+    await api(`copies/${Number(copyId)}`, {
+      method: 'DELETE'
+    });
+
+    message('Physical copy deleted successfully.');
+    await refresh();
+  } catch (e) {
+    message(e.message);
+  }
+};
 window.toggleAQKBookGroup = groupId => {
   const row = document.querySelector(
     `[data-aqk-book-details="${groupId}"]`
@@ -342,38 +362,54 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
   );
 
   const details = g.books.map(b => {
-    const bookCopies = g.copies.filter(
-      c => Number(c.book_id) === Number(b.id)
-    );
+  const bookCopies = g.copies.filter(
+    c => Number(c.book_id) === Number(b.id)
+  );
 
-    return `
-      <tr>
-        <td>${safe(b.ser_no || '—')}</td>
-        <td>${safe(b.accession_no || '—')}</td>
-        <td>${safe(b.title || '')}</td>
-        <td>${bookCopies.length}</td>
-        <td>
-          <button class="actionBtn"
-            onclick="window.editAQKBook(${Number(b.id)})">
-            Edit
+  const copyRows = bookCopies.map(c => `
+    <div style="padding:6px;border-bottom:1px solid #ddd">
+      <b>${safe(c.copy_code || 'Copy #' + c.id)}</b>
+      <span class="muted"> — ${safe(c.status || '—')}</span>
+
+      ${isAdmin() ? `
+        <button type="button" class="actionBtn danger"
+          onclick="window.deleteAQKCopy(${Number(c.id)})">
+          Delete Copy
+        </button>
+      ` : ''}
+    </div>
+  `).join('');
+
+  return `
+    <tr>
+      <td>${safe(b.ser_no || '—')}</td>
+      <td>${safe(b.accession_no || '—')}</td>
+      <td>${safe(b.title || '')}</td>
+      <td>
+        <b>${bookCopies.length}</b>
+        <div>${copyRows || 'No physical copies'}</div>
+      </td>
+      <td>
+        <button class="actionBtn"
+          onclick="window.editAQKBook(${Number(b.id)})">
+          Edit
+        </button>
+
+        <button class="actionBtn"
+          onclick="window.printAQKLabels(${Number(b.id)})">
+          Print IDs
+        </button>
+
+        ${isAdmin() ? `
+          <button class="actionBtn danger"
+            onclick="window.deleteAQKRecord('books', ${Number(b.id)})">
+            Delete Book
           </button>
-
-          <button class="actionBtn"
-            onclick="window.printAQKLabels(${Number(b.id)})">
-            Print IDs
-          </button>
-
-          ${isAdmin() ? `
-            <button class="actionBtn danger"
-              onclick="window.deleteAQKRecord('books', ${Number(b.id)})">
-              Delete
-            </button>
-          ` : ''}
-        </td>
-      </tr>
-    `;
-  }).join('');
-
+        ` : ''}
+      </td>
+    </tr>
+  `;
+}).join('');
   return `
     <tr>
       <td>
