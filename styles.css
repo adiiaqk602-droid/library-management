@@ -2724,3 +2724,56 @@ tbody tr:hover {
     font-size:42px;
   }
 }
+/* AQK BOOK REGISTER TABLE DESIGN */
+#books .tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+#books .tableWrap table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: collapse;
+}
+
+#books .tableWrap thead th {
+  background: #12345a;
+  color: #fff;
+  padding: 13px 12px;
+  text-align: left;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+#books .tableWrap tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #e5ebf3;
+  color: #34445a;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+#books .tableWrap tbody tr:hover {
+  background: #f3f7fc;
+}
+
+#books .tableWrap tbody tr:nth-child(even) {
+  background: #f9fbfd;
+}
+
+#books .tableWrap .actionBtn {
+  margin: 2px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#books .tableWrap .actionBtn.danger {
+  background: #dc2626;
+  color: #fff;
+}
