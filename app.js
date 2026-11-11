@@ -674,90 +674,92 @@ window.toggleAQKBookGroup = groupId => {
   }
 };
 
-$('bookRows').innerHTML = filteredGroups.map((g, index) => {
-  const first = g.books[0];
-  const groupId = g.books.map(b => Number(b.id)).join('-');
 
-  const library = state.libraries.find(
-    l => Number(l.id) === Number(first.library_id)
-  );
+$('bookRows').innerHTML = filteredGroups.flatMap(g => {
+  return g.books.map(b => {
+    const bookId = Number(b.id);
 
-  const category = state.categories.find(
-    c => Number(c.id) === Number(first.category_id)
-  );
-
-  const details = g.books.map(b => {
-    const bookCopies = g.copies.filter(
-      c => Number(c.book_id) === Number(b.id)
+    const library = state.libraries.find(
+      l => Number(l.id) === Number(b.library_id)
     );
 
+    const category = state.categories.find(
+      c => Number(c.id) === Number(b.category_id)
+    );
+
+    const bookCopies = g.copies.filter(
+      c => Number(c.book_id) === bookId
+    );
+
+    const availableCopies = bookCopies.filter(
+      c => String(c.status || '').toLowerCase() === 'available'
+    ).length;
+
+    const totalCopies = bookCopies.length;
+    const detailId = 'book-' + bookId;
+
     const copyRows = bookCopies.map(c => `
-      <div style="padding:6px;border-bottom:1px solid #ddd">
+      <div style="padding:8px;border-bottom:1px solid #e2e8f0">
         <b>${safe(c.copy_code || 'Copy #' + c.id)}</b>
         <span class="muted"> — ${safe(c.status || '—')}</span>
       </div>
     `).join('');
 
+    const status = availableCopies === 0
+      ? '<b style="color:#dc2626">Out of Stock</b>'
+      : availableCopies <= 5
+        ? '<b style="color:#d97706">Low Stock</b>'
+        : '<b style="color:#16a34a">Available</b>';
+
     return `
       <tr>
-        <td>${safe(b.ser_no || '—')}</td>
-        <td>${safe(b.accession_no || '—')}</td>
-        <td>${safe(b.title || '')}</td>
-        <td>${bookCopies.length}<div>${copyRows || 'No physical copies'}</div></td>
         <td>
-          <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
-          <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
+          <input type="checkbox"
+            class="bookSelectCheckbox"
+            data-book-ids="${bookId}">
+        </td>
+        <td>
+          <b>${safe(b.title || '')}</b>
+          <div class="muted small">
+            Accession: ${safe(b.accession_no || '—')}
+          </div>
+        </td>
+        <td>${safe(b.author || '—')}</td>
+        <td>${safe(library?.name || '—')}</td>
+        <td>${safe(category?.name || '—')}</td>
+        <td><b>${totalCopies}</b></td>
+        <td><b>${availableCopies}</b></td>
+        <td>${status}</td>
+        <td>
+          <button class="actionBtn"
+            onclick="window.editAQKBook(${bookId})">Edit</button>
+
+          <button class="actionBtn"
+            onclick="window.toggleAQKBookGroup('${detailId}')">View</button>
+
           ${isAdmin() ? `
-            <button class="actionBtn danger" onclick="window.deleteAQKRecord('books', ${Number(b.id)})">Delete Book</button>
+            <button class="actionBtn danger"
+              onclick="window.deleteAQKRecord('books', ${bookId})">
+              Delete
+            </button>
           ` : ''}
         </td>
       </tr>
-    `;
-  }).join('');
 
-  return `
-    <tr>
-      <td><input type="checkbox" class="bookSelectCheckbox" data-book-ids="${groupId}"></td>
-      <td>
-        <b>${safe(first.title || '')}</b>
-        <div class="muted small">Accession: ${safe(first.accession_no || '—')}</div>
-      </td>
-      <td>${safe(first.author || '—')}</td>
-      <td>${safe(library?.name || '—')}</td>
-      <td>${safe(category?.name || '—')}</td>
-      <td><b>${g.total}</b></td>
-      <td><b>${g.available}</b></td>
-      <td>
-        ${g.available === 0
-          ? '<b style="color:#dc2626">Out of Stock</b>'
-          : g.available <= 5
-            ? '<b style="color:#d97706">Low Stock</b>'
-            : '<b style="color:#16a34a">Available</b>'}
-      </td>
-      <td>
-        <button class="actionBtn" onclick="window.toggleAQKBookGroup('${groupId}')">View Details</button>
-      </td>
-    </tr>
-    <tr data-aqk-book-details="${groupId}" style="display:none">
-      <td colspan="9">
-        <div class="tableWrap">
-          <b>Individual Book Records</b>
-          <table>
-            <thead>
-              <tr>
-                <th>Serial No.</th>
-                <th>Accession No.</th>
-                <th>Title</th>
-                <th>Total Books</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>${details}</tbody>
-          </table>
-        </div>
-      </td>
-    </tr>
-  `;
+      <tr data-aqk-book-details="${detailId}" style="display:none">
+        <td colspan="9">
+          <div class="tableWrap">
+            <b>Individual Copies — ${safe(b.title || '')}</b>
+            ${copyRows || '<div>No physical copies found.</div>'}
+            <div style="padding:8px">
+              Total: ${totalCopies} |
+              Available: ${availableCopies}
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
 }).join('') || '<tr><td colspan="9">No books found.</td></tr>';
 
 
