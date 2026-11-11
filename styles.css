@@ -2777,3 +2777,75 @@ tbody tr:hover {
   background: #dc2626;
   color: #fff;
 }
+
+/* SIMPLE LIBRARY OVERVIEW CARDS */
+#dashboard .libraryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 15px;
+}
+
+#dashboard #libraryCards .shelfCard {
+  background: #fff;
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 7px rgba(18, 52, 90, 0.06);
+}
+
+#dashboard #libraryCards .shelfCardHead {
+  background: #edf3fa;
+  color: #12345a;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #dce4ef;
+}
+
+#dashboard #libraryCards .shelfCardHead b {
+  font-size: 15px;
+}
+
+#dashboard #libraryCards .shelfCardHead span {
+  background: #12345a;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+}
+
+#dashboard #libraryCards .bookshelf {
+  display: none !important;
+}
+
+#dashboard #libraryCards .shelfInfo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 16px 10px;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+}
+
+#dashboard #libraryCards .shelfInfo span {
+  padding: 8px 3px;
+  background: #f7f9fc;
+  border-radius: 5px;
+}
+
+#dashboard #libraryCards .shelfInfo b {
+  display: block;
+  color: #12345a;
+  font-size: 18px;
+  margin-top: 5px;
+}
+
+@media (max-width: 650px) {
+  #dashboard .libraryGrid {
+    grid-template-columns: 1fr;
+  }
+}
