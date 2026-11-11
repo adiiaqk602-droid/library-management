@@ -674,28 +674,6 @@ window.toggleAQKBookGroup = groupId => {
   }
 };
 
-const category = state.categories.find(
-  c => Number(c.id) === Number(first.category_id)
-);
-
-  return `
-    <tr>
-      <td>${safe(b.ser_no || '—')}</td>
-      <td>${safe(b.accession_no || '—')}</td>
-      <td>${safe(b.title || '')}</td>
-      <td>${bookCopies.length}<div>${copyRows || 'No physical copies'}</div></td>
-      <td>
-        <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
-        <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
-        ${isAdmin() ? `
-          <button class="actionBtn danger" onclick="window.deleteAQKRecord('books', ${Number(b.id)})">Delete Book</button>
-        ` : ''}
-      </td>
-    </tr>
-  `;
-}).join('');
-
-
 $('bookRows').innerHTML = filteredGroups.map((g, index) => {
   const first = g.books[0];
   const groupId = g.books.map(b => Number(b.id)).join('-');
