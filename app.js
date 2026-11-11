@@ -695,6 +695,7 @@ const category = state.categories.find(
   `;
 }).join('');
 
+
 $('bookRows').innerHTML = filteredGroups.map((g, index) => {
   const first = g.books[0];
   const groupId = g.books.map(b => Number(b.id)).join('-');
@@ -706,6 +707,35 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
   const category = state.categories.find(
     c => Number(c.id) === Number(first.category_id)
   );
+
+  const details = g.books.map(b => {
+    const bookCopies = g.copies.filter(
+      c => Number(c.book_id) === Number(b.id)
+    );
+
+    const copyRows = bookCopies.map(c => `
+      <div style="padding:6px;border-bottom:1px solid #ddd">
+        <b>${safe(c.copy_code || 'Copy #' + c.id)}</b>
+        <span class="muted"> — ${safe(c.status || '—')}</span>
+      </div>
+    `).join('');
+
+    return `
+      <tr>
+        <td>${safe(b.ser_no || '—')}</td>
+        <td>${safe(b.accession_no || '—')}</td>
+        <td>${safe(b.title || '')}</td>
+        <td>${bookCopies.length}<div>${copyRows || 'No physical copies'}</div></td>
+        <td>
+          <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
+          <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
+          ${isAdmin() ? `
+            <button class="actionBtn danger" onclick="window.deleteAQKRecord('books', ${Number(b.id)})">Delete Book</button>
+          ` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   return `
     <tr>
@@ -751,6 +781,7 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
     </tr>
   `;
 }).join('') || '<tr><td colspan="9">No books found.</td></tr>';
+
 
 renderCategorySearch();
 // END AQK SMART BOOK CATALOGUE
