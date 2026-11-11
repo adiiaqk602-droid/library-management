@@ -662,6 +662,7 @@ window.deleteAQKCopy = async copyId => {
     message(e.message);
   }
 };
+
 window.toggleAQKBookGroup = groupId => {
   const row = document.querySelector(
     `[data-aqk-book-details="${groupId}"]`
@@ -672,6 +673,41 @@ window.toggleAQKBookGroup = groupId => {
       row.style.display === 'none' ? 'table-row' : 'none';
   }
 };
+
+const details = g.books.map(b => {
+  const bookCopies = g.copies.filter(
+    c => Number(c.book_id) === Number(b.id)
+  );
+
+  const copyRows = bookCopies.map(c => `
+    <div style="padding:6px;border-bottom:1px solid #ddd">
+      <b>${safe(c.copy_code || 'Copy #' + c.id)}</b>
+      <span class="muted"> — ${safe(c.status || '—')}</span>
+      ${isAdmin() ? `
+        <button type="button" class="actionBtn danger"
+          onclick="window.deleteAQKCopy(${Number(c.id)})">
+          Delete Copy
+        </button>
+      ` : ''}
+    </div>
+  `).join('');
+
+  return `
+    <tr>
+      <td>${safe(b.ser_no || '—')}</td>
+      <td>${safe(b.accession_no || '—')}</td>
+      <td>${safe(b.title || '')}</td>
+      <td>${bookCopies.length}<div>${copyRows || 'No physical copies'}</div></td>
+      <td>
+        <button class="actionBtn" onclick="window.editAQKBook(${Number(b.id)})">Edit</button>
+        <button class="actionBtn" onclick="window.printAQKLabels(${Number(b.id)})">Print IDs</button>
+        ${isAdmin() ? `
+          <button class="actionBtn danger" onclick="window.deleteAQKRecord('books', ${Number(b.id)})">Delete Book</button>
+        ` : ''}
+      </td>
+    </tr>
+  `;
+}).join('');
 
 $('bookRows').innerHTML = filteredGroups.map((g, index) => {
   const first = g.books[0];
@@ -685,42 +721,54 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
     c => Number(c.id) === Number(first.category_id)
   );
 
-  <CodeBlock language="javascript" editable>
-  const details = g.books.map(b => {
-    const bookCopies = g.copies.filter(
-      c => Number(c.book_id) === Number(b.id)
-    );
-
-
-const copyRows = bookCopies.map(c =>       DIL0    ).join('');
-
-return `
-
-`;
-  }).join('');
-
-$('bookRows').innerHTML = filteredGroups.map((g, index) => {
-    const first = g.books[0];
-    const groupId = g.books.map(b => Number(b.id)).join('-');
-
-const library = state.libraries.find(
-      l => Number(l.id) === Number(first.library_id)
-    );
-
-const category = state.categories.find(
-      c => Number(c.id) === Number(first.category_id)
-    );
-
-return `
-      
-`;
-  }).join('') || '<tr><td colspan="9">No books found.</td></tr>';
-</CodeBlock>
-return `
-  DIL0
+  return `
+    <tr>
+      <td><input type="checkbox" class="bookSelectCheckbox" data-book-ids="${groupId}"></td>
+      <td>
+        <b>${safe(first.title || '')}</b>
+        <div class="muted small">Accession: ${safe(first.accession_no || '—')}</div>
+      </td>
+      <td>${safe(first.author || '—')}</td>
+      <td>${safe(library?.name || '—')}</td>
+      <td>${safe(category?.name || '—')}</td>
+      <td><b>${g.total}</b></td>
+      <td><b>${g.available}</b></td>
+      <td>
+        ${g.available === 0
+          ? '<b style="color:#dc2626">Out of Stock</b>'
+          : g.available <= 5
+            ? '<b style="color:#d97706">Low Stock</b>'
+            : '<b style="color:#16a34a">Available</b>'}
+      </td>
+      <td>
+        <button class="actionBtn" onclick="window.toggleAQKBookGroup('${groupId}')">View Details</button>
+      </td>
+    </tr>
+    <tr data-aqk-book-details="${groupId}" style="display:none">
+      <td colspan="9">
+        <div class="tableWrap">
+          <b>Individual Book Records</b>
+          <table>
+            <thead>
+              <tr>
+                <th>Serial No.</th>
+                <th>Accession No.</th>
+                <th>Title</th>
+                <th>Total Books</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>${details}</tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+  `;
+}).join('') || '<tr><td colspan="9">No books found.</td></tr>';
 
 renderCategorySearch();
 // END AQK SMART BOOK CATALOGUE
+
 
 $('wingRows').innerHTML = state.wings.map(w => `
   <tr>
