@@ -28,55 +28,48 @@
 <nav class="tabs" id="tabs"><button data-tab="dashboard" class="active">Dashboard</button><button data-tab="books">New Books</button><button data-tab="ebooks">E-Books</button><button data-tab="categories">Categories</button><button data-tab="libraries">Libraries &amp; Wings</button><button data-tab="members">Students / Membership</button><button data-tab="inventory">Inventory</button>
 <button data-tab="racks">Rack Management</button><button data-tab="loans">Issue / Return / Fine</button><button data-tab="reports">Reports</button><button data-tab="users" data-admin-only="1">Librarian Accounts</button></nav>
 ```html
-<section id="dashboard" class="tab panel">
-  <h2>Dashboard</h2>
 
-  <div class="aqkHero">
-    <div class="aqkHeroText">
-      <span class="aqkHeroTag">AQK LIBRARY MANAGEMENT</span>
-      <h2>Welcome to Your Library</h2>
-      <p>Manage books, students, shelves and all five libraries from one place.</p>
-      <div class="aqkHeroFeatures">
-        <span>📚 Book Collection</span>
-        <span>🏛️ Five Libraries</span>
-        <span>📖 Digital Library</span>
-      </div>
+<section id="dashboard" class="tab panel">
+  <div class="dashboardWelcome">
+    <div>
+      <span class="dashboardEyebrow">DR A Q KHAN SCHOOL & COLLEGE</span>
+      <h2>Library Dashboard</h2>
+      <p>Manage and monitor your library collection from one place.</p>
     </div>
-    <div class="aqkHeroBooks" aria-hidden="true">
-      <span>📚</span><span>📖</span><span>📚</span>
-    </div>
+    <div class="dashboardWelcomeIcon">📚</div>
   </div>
 
-  <h3>Library Statistics</h3>
+  <h3 class="dashboardSectionTitle">Library Statistics</h3>
   <div id="stats" class="stats"></div>
 
- 
-
-  <div class="dashboardChartBox">
-    <h3>Digital Library — E-Books</h3>
-    <div class="stat">
-      <strong id="dashboardEbookCount">0</strong>
-      <span>Available E-Books</span>
+  <div class="dashboardTopGrid">
+    <div class="dashboardChartBox">
+      <h3>Digital Library — E-Books</h3>
+      <div class="ebookDashboardCount">
+        <strong id="dashboardEbookCount">0</strong>
+        <span>Available E-Books</span>
+      </div>
+      <button type="button" data-tab="ebooks">Open E-Books</button>
     </div>
-    <button data-tab="ebooks">Open E-Books</button>
+
+    <div class="dashboardChartBox">
+      <h3>Category-wise Books Overview</h3>
+      <div id="dashboardCategoryChart"></div>
+    </div>
   </div>
 
-  <h3>Library-wise Overview</h3>
+  <h3 class="dashboardSectionTitle">Library-wise Overview</h3>
   <div id="libraryCards" class="libraryGrid"></div>
 
-  <div class="dashboardChartBox">
-    <h3>Category-wise Books Overview</h3>
-    <div id="dashboardCategoryChart"></div>
-  </div>
-
-  <div class="dashboardChartBox">
-    <h3>Daily Issue / Return Statistics</h3>
-    <div id="dashboardDailyStats" class="stats"></div>
-  </div>
-
-  <div class="dashboardChartBox">
-    <h3>Fine Collection Summary</h3>
-    <div id="dashboardFineSummary" class="stats"></div>
+  <div class="dashboardTopGrid">
+    <div class="dashboardChartBox">
+      <h3>Daily Issue / Return Statistics</h3>
+      <div id="dashboardDailyStats" class="stats"></div>
+    </div>
+    <div class="dashboardChartBox">
+      <h3>Fine Collection Summary</h3>
+      <div id="dashboardFineSummary" class="stats"></div>
+    </div>
   </div>
 
   <div class="dashboardChartBox">
@@ -96,7 +89,6 @@
         Activities will appear here.
       </div>
     </div>
-
     <div class="dashboardBox">
       <h3>Stock Alerts</h3>
       <div id="dashboardStockAlerts">
@@ -107,6 +99,7 @@
 
   <p id="statusText" class="muted small">Connecting…</p>
 </section>
+
 <section id="books" class="tab panel hidden"><div class="sectionHead"><div><h2>New Books Entry</h2><p class="muted">Each physical book gets a unique tag/copy ID.</p></div><button class="secondary" data-refresh="books">Refresh</button></div>
 
 <form id="bookForm" class="formGrid">
@@ -262,6 +255,52 @@
 </form>
 
 <!-- END AQK BOOK FILTERS -->
+  
+<!-- AQK BOOK REGISTER HEADER -->
+<div class="sectionHead bookRegisterHead">
+  <div>
+    <h2>Books Register</h2>
+    <p class="muted">Search, filter and manage library book records.</p>
+  </div>
+  <div class="bookRegisterActions">
+    <button type="button" class="secondary" id="selectAllBooksBtn">
+      Select All
+    </button>
+    <button type="button" id="printSelectedBooks">
+      Print Selected
+    </button>
+  </div>
+</div>
+
+<!-- AQK BOOK SEARCH AND FILTERS -->
+<div class="bookFilters">
+  <input
+    type="search"
+    id="bookFilterSearch"
+    placeholder="Search title, author, accession number..."
+  >
+
+  <select id="bookFilterLibrary">
+    <option value="">All Libraries</option>
+  </select>
+
+  <select id="bookFilterCategory">
+    <option value="">All Categories</option>
+  </select>
+
+  <select id="bookFilterStock">
+    <option value="">All Stock</option>
+    <option value="all">All Books</option>
+    <option value="available">Available</option>
+    <option value="out">Out of Stock</option>
+  </select>
+
+  <button type="button" class="secondary" id="clearBookFilters">
+    Clear Filters
+  </button>
+</div>
+<!-- END AQK BOOK REGISTER HEADER -->
+
   <div class="tableWrap">
     <table>
       <thead>
