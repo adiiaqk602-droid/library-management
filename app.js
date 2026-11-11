@@ -674,23 +674,9 @@ window.toggleAQKBookGroup = groupId => {
   }
 };
 
-const details = g.books.map(b => {
-  const bookCopies = g.copies.filter(
-    c => Number(c.book_id) === Number(b.id)
-  );
-
-  const copyRows = bookCopies.map(c => `
-    <div style="padding:6px;border-bottom:1px solid #ddd">
-      <b>${safe(c.copy_code || 'Copy #' + c.id)}</b>
-      <span class="muted"> — ${safe(c.status || '—')}</span>
-      ${isAdmin() ? `
-        <button type="button" class="actionBtn danger"
-          onclick="window.deleteAQKCopy(${Number(c.id)})">
-          Delete Copy
-        </button>
-      ` : ''}
-    </div>
-  `).join('');
+const category = state.categories.find(
+  c => Number(c.id) === Number(first.category_id)
+);
 
   return `
     <tr>
