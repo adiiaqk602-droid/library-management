@@ -685,25 +685,37 @@ $('bookRows').innerHTML = filteredGroups.map((g, index) => {
     c => Number(c.id) === Number(first.category_id)
   );
 
+  <CodeBlock language="javascript" editable>
   const details = g.books.map(b => {
-  const bookCopies = g.copies.filter(
-    c => Number(c.book_id) === Number(b.id)
-  );
+    const bookCopies = g.copies.filter(
+      c => Number(c.book_id) === Number(b.id)
+    );
 
-  const copyRows = bookCopies.map(c => `
-    <div style="padding:6px;border-bottom:1px solid #ddd">
-      <b>${safe(c.copy_code || 'Copy #' + c.id)}</b>
-      <span class="muted"> — ${safe(c.status || '—')}</span>
 
-      ${isAdmin() ? `
-        <button type="button" class="actionBtn danger"
-          onclick="window.deleteAQKCopy(${Number(c.id)})">
-          Delete Copy
-        </button>
-      ` : ''}
-    </div>
-  `).join('');
+const copyRows = bookCopies.map(c =>       DIL0    ).join('');
 
+return `
+
+`;
+  }).join('');
+
+$('bookRows').innerHTML = filteredGroups.map((g, index) => {
+    const first = g.books[0];
+    const groupId = g.books.map(b => Number(b.id)).join('-');
+
+const library = state.libraries.find(
+      l => Number(l.id) === Number(first.library_id)
+    );
+
+const category = state.categories.find(
+      c => Number(c.id) === Number(first.category_id)
+    );
+
+return `
+      
+`;
+  }).join('') || '<tr><td colspan="9">No books found.</td></tr>';
+</CodeBlock>
 return `
   DIL0
 
