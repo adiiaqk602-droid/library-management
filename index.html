@@ -537,15 +537,42 @@
     class="formGrid">
   </div>
 
-  <div id="memberViewPanel" class="hidden">
-    <hr>
-    <h3>Member Complete Details</h3>
-    <div id="memberViewContent"></div>
-    <button type="button" id="closeMemberView"
-      class="secondary">
-      Close Details
-    </button>
+  
+<div id="memberViewPanel" class="hidden"
+  style="position:fixed;inset:0;z-index:9999;background:#fff;overflow-y:auto;padding:25px;">
+
+  <div style="max-width:1100px;margin:0 auto;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-bottom:2px solid #ddd;padding-bottom:15px;">
+      <div>
+        <h2 style="margin:0;">Dr A Q Khan School &amp; College</h2>
+        <h3 style="margin:6px 0;">BS Library — Member Profile</h3>
+        <p class="muted">Complete Membership Record</p>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" id="memberPrintProfile">
+          Print Profile
+        </button>
+
+        <button type="button" id="closeMemberView"
+          class="secondary">
+          Back to Members
+        </button>
+      </div>
+    </div>
+
+    <div id="memberViewContent"
+      style="margin-top:25px;"></div>
+
+    <p class="muted small"
+      style="text-align:center;margin-top:35px;">
+      AQK Library Management System · BS Library
+    </p>
+
   </div>
+</div>
+
 </section>
   <section id="inventory" class="tab panel hidden">
   <h2>Library-Wise Inventory Management</h2>
