@@ -296,7 +296,56 @@ function renderAQKMembers() {
     $('closeMemberView')?.addEventListener('click', () => {
       $('memberViewPanel').classList.add('hidden');
     });
+$('memberPrintProfile')?.addEventListener('click', () => {
+  const content = $('memberViewContent');
+  if (!content) return;
 
+  const win = window.open('', '_blank');
+
+  if (!win) {
+    alert('Please allow pop-ups to print the member profile.');
+    return;
+  }
+
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>BS Library Member Profile</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          padding: 30px;
+          color: #222;
+        }
+        h2, h3, p { text-align: center; }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 25px;
+        }
+        th, td {
+          border: 1px solid #555;
+          padding: 10px;
+          text-align: left;
+        }
+        th {
+          width: 30%;
+          background: #f1f1f1;
+        }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School & College</h2>
+      <h3>BS Library — Member Profile</h3>
+      ${content.innerHTML}
+      <script>window.onload=()=>window.print();<\/script>
+    </body>
+    </html>
+  `);
+
+  win.document.close();
+});
     $('printSelectedMembers')?.addEventListener('click', () => {
       const ids = [...document.querySelectorAll(
         '.memberSelectCheckbox:checked'
