@@ -406,8 +406,42 @@ async function handle(request,env){
     const email=String(d.email||'').trim().toLowerCase(),name=String(d.full_name||'').trim(),password=String(d.password||''),libraryId=Number(d.library_id);
     if(!email.includes('@')||name.length<2||password.length<12||!libraryId)return fail('Provide name, valid email, library and a password of at least 12 characters.');
     const lib=await env.DB.prepare('SELECT id FROM libraries WHERE id=?').bind(libraryId).first();if(!lib)return fail('Library not found.');
-    try{const r=await env.DB.prepare("INSERT INTO users(email,full_name,password_hash,role,library_id) VALUES(?,?,?,'librarian',?)").bind(email,name,await hashPassword(password),libraryId).run();await audit(env,user,'create','users',r.meta.last_row_id,email);return json({ok:true,id:r.meta.last_row_id},201);}catch{return fail('Could not create account; email may already exist.',409);}
-  }
+    let r;
+
+try {
+  r = await env.DB.prepare(
+    "INSERT INTO users(email,full_name,password_hash,role,library_id) VALUES(?,?,?,'librarian',?)"
+  ).bind(
+    email,
+    name,
+    await hashPassword(password),
+    libraryId
+  ).run();
+
+} catch (error) {
+  console.error('Librarian INSERT failed:', error);
+
+  return fail(
+    'Account creation failed: ' + (error?.message || String(error)),
+    500
+  );
+}
+
+try {
+  await audit(
+    env,
+    user,
+    'create',
+    'users',
+    r.meta.last_row_id,
+    email
+  );
+} catch (error) {
+  console.error('Librarian audit failed:', error);
+}
+
+return json({ok:true,id:r.meta.last_row_id},201);
+  }  
   if(path==='users'&&method==='PATCH'){
     if(!isAdmin(user))return fail('Forbidden.',403);const d=await bodyJson(request);if(!d||!Number(d.id))return fail('User ID required.');const active=d.active?1:0;await env.DB.prepare("UPDATE users SET active=? WHERE id=? AND role='librarian'").bind(active,Number(d.id)).run();await audit(env,user,'update','users',d.id,`active=${active}`);return json({ok:true});
   }
