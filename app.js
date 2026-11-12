@@ -1304,7 +1304,29 @@ const ids = [
   }
 
   window.printAQKMultiple(ids);
-});function formPayload(form){const d=Object.fromEntries(new FormData(form));for(const k of Object.keys(d))if(d[k]==='')d[k]=null;return d;}
+});
+  // AQK: Print Combined Book Register
+$('printCombinedBooks')?.addEventListener('click', () => {
+  const ids = [
+    ...new Set(
+      [...document.querySelectorAll('.bookSelectCheckbox:checked')]
+        .flatMap(box =>
+          (box.dataset.bookIds || '')
+            .split('-')
+            .map(Number)
+        )
+        .filter(id => Number.isFinite(id) && id > 0)
+    )
+  ];
+
+  if (!ids.length) {
+    message('Please select at least one book.');
+    return;
+  }
+
+  window.printAQKCombined(ids);
+});
+  function formPayload(form){const d=Object.fromEntries(new FormData(form));for(const k of Object.keys(d))if(d[k]==='')d[k]=null;return d;}
   async function submitForm(id,endpoint,success,transform){$(id).addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;let data=formPayload(form);if(transform)data=transform(data);try{await api(endpoint,{method:'POST',body:JSON.stringify(data)});form.reset();message(success);await refresh();}catch(err){message(err.message);}});}
 let printAfterBookSave = false;
 
@@ -2724,6 +2746,259 @@ window.printAQKMultiple = ids => {
 
   w.document.close();
 };
+  
+// AQK: Combined Book Register
+window.printAQKCombined = ids => {
+  const selectedBooks = ids
+    .map(id => state.books.find(b => Number(b.id) === Number(id)))
+    .filter(Boolean);
+
+  if (!selectedBooks.length) {
+    message('Please select at least one book.');
+    return;
+  }
+
+  const w = window.open('', '_blank');
+
+  if (!w) {
+    message('Please allow pop-ups to print.');
+    return;
+  }
+
+  const val = v =>
+    v !== null && v !== undefined && v !== '' ? v : '—';
+
+  const money = v =>
+    v !== null && v !== undefined && v !== ''
+      ? 'Rs. ' + Number(v).toLocaleString('en-PK')
+      : '—';
+
+  const rows = selectedBooks.map((b, index) => {
+    const library = state.libraries.find(
+      x => Number(x.id) === Number(b.library_id)
+    );
+
+    const category = state.categories.find(
+      x => Number(x.id) === Number(b.category_id)
+    );
+
+    const wing = state.wings.find(
+      x => Number(x.id) === Number(b.wing_id)
+    );
+
+    const rack = state.racks.find(
+      x => Number(x.id) === Number(b.rack_id)
+    );
+
+    const copies = state.copies.filter(
+      c => Number(c.book_id) === Number(b.id)
+    );
+
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${safe(val(b.ser_no))}</td>
+        <td>${safe(val(b.accession_no))}</td>
+        <td>${safe(val(b.title))}</td>
+        <td>${safe(val(b.author))}</td>
+        <td>${safe(val(category?.name))}</td>
+        <td>${safe(val(library?.name))}</td>
+        <td>${safe(val(wing?.name))}</td>
+        <td>${safe(val(rack?.name || b.rack_number))}</td>
+        <td>${safe(val(b.shelf_number))}</td>
+        <td>${copies.length || Number(b.copy_count || 0)}</td>
+        <td>${safe(money(b.price))}</td>
+        <td>${safe(val(b.condition))}</td>
+        <td>${safe(val(b.stock_type))}</td>
+      </tr>
+    `;
+  }).join('');
+
+  w.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>AQK Combined Book Register</title>
+
+      <style>
+        @page {
+          size: A4 landscape;
+          margin: 10mm;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #333;
+          margin: 15px;
+        }
+
+        .toolbar {
+          text-align: center;
+          margin-bottom: 18px;
+        }
+
+        button {
+          padding: 9px 18px;
+          background: #6d5032;
+          color: white;
+          border: 0;
+          cursor: pointer;
+        }
+
+        .header {
+          text-align: center;
+          border-bottom: 2px solid #8b704b;
+          padding-bottom: 10px;
+        }
+
+        .header h1 {
+          font-size: 21px;
+          margin: 4px;
+        }
+
+        .header p {
+          margin: 4px;
+          font-size: 12px;
+        }
+
+        .reportTitle {
+          text-align: center;
+          font-size: 17px;
+          font-weight: bold;
+          margin: 15px 0 5px;
+        }
+
+        .subtitle {
+          text-align: center;
+          font-size: 11px;
+          margin-bottom: 15px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        th, td {
+          border: 1px solid #888;
+          padding: 6px 5px;
+          font-size: 9px;
+          text-align: left;
+          vertical-align: top;
+          overflow-wrap: anywhere;
+        }
+
+        th {
+          background: #eee4d1;
+          font-weight: bold;
+        }
+
+        .summary {
+          margin-top: 12px;
+          padding: 8px;
+          border: 1px solid #a58a63;
+          font-size: 11px;
+        }
+
+        .footer {
+          text-align: center;
+          border-top: 2px solid #8b704b;
+          margin-top: 15px;
+          padding-top: 8px;
+          font-size: 9px;
+        }
+
+        @media print {
+          body {
+            margin: 0;
+          }
+
+          .toolbar {
+            display: none;
+          }
+
+          thead {
+            display: table-header-group;
+          }
+
+          tr {
+            break-inside: avoid;
+          }
+
+          th {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="toolbar">
+        <button onclick="window.print()">Print Combined Register</button>
+      </div>
+
+      <div class="header">
+        <h1>Dr A Q Khan School &amp; College</h1>
+        <p>Bahria Town Phase-8</p>
+        <p>AQK Library Management System</p>
+      </div>
+
+      <div class="reportTitle">
+        COMBINED BOOK INVENTORY REGISTER
+      </div>
+
+      <div class="subtitle">
+        Total Selected Books: ${selectedBooks.length}
+        · Printed Date: ${new Date().toLocaleDateString('en-GB')}
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Sr.</th>
+            <th>Serial No.</th>
+            <th>Accession No.</th>
+            <th>Book Title</th>
+            <th>Author</th>
+            <th>Category</th>
+            <th>Library</th>
+            <th>Wing</th>
+            <th>Rack</th>
+            <th>Shelf</th>
+            <th>Copies</th>
+            <th>Price</th>
+            <th>Condition</th>
+            <th>Stock Type</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <div class="summary">
+        <b>Total Books:</b> ${selectedBooks.length}
+      </div>
+
+      <div class="footer">
+        CONFIDENTIAL - FOR INTERNAL LIBRARY RECORDS
+        <br>
+        Dr A Q Khan School &amp; College · AQK Library Management System
+      </div>
+    </body>
+    </html>
+  `);
+
+  w.document.close();
+};
+
   // AQK E-Books module
   async function loadEbooks() {
     const rows = $('ebookRows');
