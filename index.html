@@ -407,8 +407,147 @@
 
 <h3>Existing Libraries</h3>
 <div id="libraryTable" class="tableWrap"></div><h3>Add Management Wing</h3><form id="wingForm" class="formGrid"><label>Wing name *<input name="name" required></label><label>Library<select name="library_id" id="wingLibrary" required></select></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><button type="submit">Add Wing</button></form><div class="tableWrap"><table><thead><tr><th>Wing</th><th>Library</th><th>Description</th><th>Actions</th></tr></thead><tbody id="wingRows"></tbody></table></div></section>
-<section id="members" class="tab panel hidden"><h2>Students &amp; Membership</h2><form id="memberForm" class="formGrid"><label>Full name *<input name="full_name" required></label><label>Member type<select name="member_type"><option>Student</option><option>Teacher</option><option>Staff</option></select></label><label>Student / College ID<input name="college_id"></label><label>Class / Department<input name="class_department"></label><label>Father / Guardian name<input name="father_name"></label><label>Contact<input name="contact"></label><label>Email<input name="email" type="email"></label><label>Membership expiry<input name="expiry_date" type="date"></label><label>Library<select name="library_id" id="memberLibrary" required></select></label><label class="wide">Address<textarea name="address" rows="2"></textarea></label><button type="submit">Add Member</button></form><div class="tableWrap"><table><thead><tr><th>Member No.</th><th>Name</th><th>Type</th><th>Roll / ID</th><th>Library</th><th>Contact</th><th>Actions</th></tr></thead><tbody id="memberRows"></tbody></table></div></section>
-<section id="inventory" class="tab panel hidden">
+<section id="members" class="tab panel hidden">
+  <h2>Students &amp; Membership</h2>
+
+  <form id="memberForm" class="formGrid">
+    <label>Full name *
+      <input name="full_name" required>
+    </label>
+
+    <label>Member type
+      <select name="member_type">
+        <option>Student</option>
+        <option>Teacher</option>
+        <option>Staff</option>
+      </select>
+    </label>
+
+    <label>Student / College ID
+      <input name="college_id">
+    </label>
+
+    <label>Class / Department
+      <input name="class_department">
+    </label>
+
+    <label>Father / Guardian name
+      <input name="father_name">
+    </label>
+
+    <label>Contact
+      <input name="contact">
+    </label>
+
+    <label>Email
+      <input name="email" type="email">
+    </label>
+
+    <label>Membership expiry
+      <input name="expiry_date" type="date">
+    </label>
+
+    <label>Library
+      <select name="library_id" id="memberLibrary" required></select>
+    </label>
+
+    <label class="wide">Address
+      <textarea name="address" rows="2"></textarea>
+    </label>
+
+    <button type="submit">Add Member</button>
+  </form>
+
+  <hr>
+
+  <h3>Member Search &amp; Filters</h3>
+
+  <div class="formGrid">
+    <label>Search Member
+      <input type="search" id="memberSearch"
+        placeholder="Member No., Name, Roll / ID, Contact">
+    </label>
+
+    <label>Member Type
+      <select id="memberTypeFilter">
+        <option value="">All Types</option>
+        <option value="Student">Student</option>
+        <option value="Teacher">Teacher</option>
+        <option value="Staff">Staff</option>
+      </select>
+    </label>
+
+    <label>Library
+      <select id="memberLibraryFilter">
+        <option value="">All Libraries</option>
+      </select>
+    </label>
+
+    <label>Records Per Page
+      <select id="memberPageSize">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="formGrid">
+    <button type="button" id="printSelectedMembers">
+      Print Selected
+    </button>
+
+    <button type="button" class="secondary" id="printFilteredMembers">
+      Print Filtered Members
+    </button>
+
+    <button type="button" class="secondary" id="printAllMembers">
+      Print All Members
+    </button>
+  </div>
+
+  <p id="memberCountInfo" class="muted">
+    Total Members: 0
+  </p>
+
+  <div class="tableWrap">
+    <table>
+      <thead>
+        <tr>
+          <th>
+            <input type="checkbox" id="memberSelectAll"
+              title="Select all members on this page">
+          </th>
+          <th>Member No.</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Roll / ID</th>
+          <th>Library</th>
+          <th>Contact</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody id="memberRows"></tbody>
+    </table>
+  </div>
+
+  <div id="memberPagination"
+    class="formGrid">
+  </div>
+
+  <div id="memberViewPanel" class="hidden">
+    <hr>
+    <h3>Member Complete Details</h3>
+    <div id="memberViewContent"></div>
+    <button type="button" id="closeMemberView"
+      class="secondary">
+      Close Details
+    </button>
+  </div>
+</section>
+  <section id="inventory" class="tab panel hidden">
   <h2>Library-Wise Inventory Management</h2>
   <p class="muted">Library-wise physical stock, availability and issue summary.</p>
 
