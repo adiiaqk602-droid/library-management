@@ -188,7 +188,276 @@ function renderLibraryInventory() {
     `;
  }).join('') || '<tr><td colspan="8">No inventory found.</td></tr>';
 }
-function render(){
+
+// AQK MEMBERS: Search, Filters, Pagination and Printing
+
+let memberCurrentPage = 1;
+let memberControlsBound = false;
+
+function renderAQKMembers() {
+  const search = ($('memberSearch')?.value || '').trim().toLowerCase();
+  const type = $('memberTypeFilter')?.value || '';
+  const libraryId = $('memberLibraryFilter')?.value || '';
+  const pageSize = Number($('memberPageSize')?.value || 10);
+
+  const filtered = (state.members || []).filter(m => {
+    const libraryName = state.libraries.find(
+      l => Number(l.id) === Number(m.library_id)
+    )?.name || '';
+
+    const matchesSearch = [
+      m.member_no, m.full_name, m.college_id,
+      m.contact, m.email, libraryName
+    ].some(v => String(v || '').toLowerCase().includes(search));
+
+    return matchesSearch &&
+      (!type || m.member_type === type) &&
+      (!libraryId || Number(m.library_id) === Number(libraryId));
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  memberCurrentPage = Math.min(memberCurrentPage, totalPages);
+
+  const start = (memberCurrentPage - 1) * pageSize;
+  const pageMembers = filtered.slice(start, start + pageSize);
+
+  $('memberRows').innerHTML = pageMembers.map(m => `
+    <tr>
+      <td>
+        <input type="checkbox" class="memberSelectCheckbox"
+          value="${Number(m.id)}">
+      </td>
+      <td>${safe(m.member_no)}</td>
+      <td>${safe(m.full_name)}</td>
+      <td>${safe(m.member_type)}</td>
+      <td>${safe(m.college_id || '')}</td>
+      <td>${safe(state.libraries.find(
+        l => Number(l.id) === Number(m.library_id)
+      )?.name || '')}</td>
+      <td>${safe(m.contact || m.email || '')}</td>
+      <td>
+        <button class="actionBtn"
+          onclick="window.viewAQKMember(${Number(m.id)})">View</button>
+        <button class="actionBtn"
+          onclick="window.editAQKMember(${Number(m.id)})">Edit</button>
+        ${isAdmin() ? `
+          <button class="actionBtn danger"
+            onclick="window.deleteAQKRecord('members',${Number(m.id)})">
+            Delete
+          </button>
+        ` : ''}
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="8">No members found.</td></tr>';
+
+  $('memberCountInfo').textContent =
+    `Showing ${filtered.length ? start + 1 : 0}–${Math.min(start + pageSize, filtered.length)} of ${filtered.length} members`;
+
+  $('memberPagination').innerHTML = `
+    <button type="button" class="secondary"
+      ${memberCurrentPage <= 1 ? 'disabled' : ''}
+      onclick="window.changeAQKMemberPage(${memberCurrentPage - 1})">
+      Previous
+    </button>
+    <span>Page ${memberCurrentPage} of ${totalPages}</span>
+    <button type="button" class="secondary"
+      ${memberCurrentPage >= totalPages ? 'disabled' : ''}
+      onclick="window.changeAQKMemberPage(${memberCurrentPage + 1})">
+      Next
+    </button>
+  `;
+
+  const libraryFilter = $('memberLibraryFilter');
+  if (libraryFilter && libraryFilter.options.length <= 1) {
+    state.libraries.forEach(l => {
+      libraryFilter.add(new Option(l.name, l.id));
+    });
+  }
+
+  if (!memberControlsBound) {
+    memberControlsBound = true;
+
+    ['memberSearch', 'memberTypeFilter',
+     'memberLibraryFilter', 'memberPageSize'].forEach(id => {
+      $(id)?.addEventListener(
+        id === 'memberSearch' ? 'input' : 'change',
+        () => {
+          memberCurrentPage = 1;
+          renderAQKMembers();
+        }
+      );
+    });
+
+    $('memberSelectAll')?.addEventListener('change', e => {
+      document.querySelectorAll('.memberSelectCheckbox')
+        .forEach(box => box.checked = e.target.checked);
+    });
+
+    $('closeMemberView')?.addEventListener('click', () => {
+      $('memberViewPanel').classList.add('hidden');
+    });
+
+    $('printSelectedMembers')?.addEventListener('click', () => {
+      const ids = [...document.querySelectorAll(
+        '.memberSelectCheckbox:checked'
+      )].map(box => Number(box.value));
+
+      printAQKMembers(
+        state.members.filter(m => ids.includes(Number(m.id))),
+        'Selected Members Register'
+      );
+    });
+
+    $('printFilteredMembers')?.addEventListener('click', () => {
+  const search = ($('memberSearch')?.value || '').trim().toLowerCase();
+  const type = $('memberTypeFilter')?.value || '';
+  const libraryId = $('memberLibraryFilter')?.value || '';
+
+  const filteredMembers = state.members.filter(m => {
+    const libraryName = state.libraries.find(
+      l => Number(l.id) === Number(m.library_id)
+    )?.name || '';
+
+    const matchesSearch = [
+      m.member_no, m.full_name, m.college_id,
+      m.contact, m.email, libraryName
+    ].some(v => String(v || '').toLowerCase().includes(search));
+
+    return matchesSearch &&
+      (!type || m.member_type === type) &&
+      (!libraryId || Number(m.library_id) === Number(libraryId));
+  });
+
+  printAQKMembers(filteredMembers, 'Filtered Members Register');
+});
+
+    $('printAllMembers')?.addEventListener('click', () => {
+      printAQKMembers(state.members, 'Complete Members Register');
+    });
+  }
+}
+
+window.changeAQKMemberPage = page => {
+  memberCurrentPage = page;
+  renderAQKMembers();
+};
+
+window.viewAQKMember = id => {
+  const m = state.members.find(x => Number(x.id) === Number(id));
+  if (!m) return;
+
+  const library = state.libraries.find(
+    l => Number(l.id) === Number(m.library_id)
+  )?.name || '';
+
+  const fields = [
+    ['Member No.', m.member_no],
+    ['Full Name', m.full_name],
+    ['Member Type', m.member_type],
+    ['Student / College ID', m.college_id],
+    ['Class / Department', m.class_department],
+    ['Father / Guardian', m.father_name],
+    ['Contact', m.contact],
+    ['Email', m.email],
+    ['Library', library],
+    ['Membership Expiry', m.expiry_date],
+    ['Address', m.address]
+  ];
+
+  $('memberViewContent').innerHTML = `
+    <div class="tableWrap">
+      <table>
+        <tbody>
+          ${fields.map(([label, value]) => `
+            <tr>
+              <th>${safe(label)}</th>
+              <td>${safe(value || '—')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  $('memberViewPanel').classList.remove('hidden');
+  $('memberViewPanel').scrollIntoView({ behavior: 'smooth' });
+};
+
+function printAQKMembers(members, title) {
+  if (!members.length) {
+    alert('No members available to print.');
+    return;
+  }
+
+  const rows = members.map(m => {
+    const library = state.libraries.find(
+      l => Number(l.id) === Number(m.library_id)
+    )?.name || '';
+
+    return `
+      <tr>
+        <td>${safe(m.member_no)}</td>
+        <td>${safe(m.full_name)}</td>
+        <td>${safe(m.member_type)}</td>
+        <td>${safe(m.college_id || '')}</td>
+        <td>${safe(library)}</td>
+        <td>${safe(m.contact || '')}</td>
+        <td>${safe(m.email || '')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    alert('Please allow pop-ups to print the register.');
+    return;
+  }
+
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${safe(title)}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 25px; }
+        h2, h3, p { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #333; padding: 7px; text-align: left; }
+        th { background: #eee; }
+        @media print { button { display: none; } }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School & College</h2>
+      <h3>BS Library</h3>
+      <h3>${safe(title)}</h3>
+      <p>Total Members: ${members.length}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Member No.</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Roll / ID</th>
+            <th>Library</th>
+            <th>Contact</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  win.document.close();
+}
+  function render(){
     fillSelects();
   
 // AQK DATE-WISE BOOK ENTRY REPORT
@@ -860,26 +1129,7 @@ console.log('AQK Minimum Stock Alert:', {
       </button>
     </td>
   </tr>
-`).join('') || '<tr><td colspan="5">No racks yet.</td></tr>';$('memberRows').innerHTML=state.members.map(m=>`
-<tr>
-  <td>${safe(m.member_no)}</td>
-  <td>${safe(m.full_name)}</td>
-  <td>${safe(m.member_type)}</td>
-  <td>${safe(m.college_id||'')}</td>
-  <td>${safe(state.libraries.find(l=>l.id==m.library_id)?.name||'')}</td>
-  <td>${safe(m.contact||m.email||'')}</td>
-  <td>
-    <button class="actionBtn"
-      onclick="window.viewAQKMember(${Number(m.id)})">View</button>
-    <button class="actionBtn"
-      onclick="window.editAQKMember(${Number(m.id)})">Edit</button>
-    ${isAdmin() ? `
-      <button class="actionBtn danger"
-        onclick="window.deleteAQKRecord('members',${Number(m.id)})">Delete</button>
-    ` : ''}
-  </td>
-</tr>
-`).join('')||'<tr><td colspan="7">No members yet.</td></tr>';
+`).join('') || '<tr><td colspan="5">No racks yet.</td></tr>';renderAQKMembers();
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
    $('loanRows').innerHTML = state.loans.map(l => {
   const overdue = l.status === 'issued' &&
