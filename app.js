@@ -1199,9 +1199,38 @@ if (isAdmin()) {
 
     if(isAdmin())for(const [key,el] of Object.entries({fine_per_day:'fine_per_day',damaged_fine_percent:'damaged_fine_percent',lost_book_extra_fine:'lost_book_extra_fine',loan_days:'loan_days'}))if($(el))$(el).value=state.settings[key]??'';
   }
-  async function init(){
-    try{const health=await api('health');const status=await api('setup-status');if(status.setupRequired){show('setupPanel');hide('loginPanel');hide('appPanel');return;}try{const me=await api('me');state.user=me.user;await refresh();}catch{show('loginPanel');hide('appPanel');} }catch(e){show('setupNotice');$('setupNotice').textContent=`Server setup incomplete: ${e.message}. Follow README.md to configure the Cloudflare D1 binding and run migration 0001_initial.sql.`;show('loginPanel');}
+  
+async function init(){
+  try {
+    const health = await api('health');
+    const status = await api('setup-status');
+
+    if (status.setupRequired) {
+      show('setupPanel');
+      hide('loginPanel');
+      hide('appPanel');
+      return;
+    }
+
+    try {
+      const me = await api('me');
+      state.user = me.user;
+      await refresh();
+    } catch (error) {
+      console.error('AQK INIT ERROR:', error);
+      show('loginPanel');
+      hide('appPanel');
+      message('Login/session error: ' + error.message, true);
+    }
+
+  } catch (error) {
+    console.error('AQK SERVER ERROR:', error);
+    show('setupNotice');
+    $('setupNotice').textContent = 'Server setup incomplete: ' + error.message;
+    show('loginPanel');
   }
+}
+
   $('setupForm').addEventListener('submit',async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));try{const r=await api('setup',{method:'POST',body:JSON.stringify(f)});setupMessage(r.message);e.currentTarget.reset();hide('setupPanel');show('loginPanel');}catch(err){setupMessage(err.message);}});
   $('loginForm').addEventListener('submit',async e=>{e.preventDefault();try{const result=await api('login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});state.user=result.user;message('Signed in.',true);await refresh();}catch(err){message(err.message,true);}});
   $('logoutBtn').addEventListener('click',async()=>{try{await api('logout',{method:'POST',body:'{}'});}finally{state.user=null;hide('appPanel');show('loginPanel');$('password').value='';}});
