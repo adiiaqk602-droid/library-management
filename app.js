@@ -1177,7 +1177,20 @@ if (fineBox) {
     const [libs,cats,wings,racks,books,members,copies,loans,report,settings]=await Promise.all(['libraries','categories','wings','racks','books','members','copies','loans','reports','settings'].map(p=>api(p).catch(e=>({error:e.message,data:[]}))));
     for(const [name,res] of [['libraries',libs],['categories',cats],['wings',wings],['racks',racks],['books',books],['members',members],['copies',copies],['loans',loans]])if(res.error)throw new Error(`${name}: ${res.error}`);
     state.libraries=libs.data||[];state.categories=cats.data||[];state.wings=wings.data||[];state.racks=racks.data||[];state.books=books.data||[];state.members=members.data||[];state.copies=copies.data||[];state.loans=loans.data||[];state.report=report;state.settings=Object.fromEntries((settings.data||[]).map(x=>[x.key,x.value]));
-    if(isAdmin())state.users=(await api('users')).data||[];
+    
+state.users = [];
+
+if (isAdmin()) {
+  try {
+    const usersResponse = await api('users');
+    state.users = usersResponse.data || [];
+    console.log('AQK Users loaded:', state.users);
+  } catch (error) {
+    console.error('AQK Users loading failed:', error);
+    message('Librarian accounts could not load: ' + error.message);
+  }
+}
+
    
        show('appPanel');
     hide('loginPanel');
