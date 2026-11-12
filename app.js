@@ -918,7 +918,7 @@ console.log('AQK Minimum Stock Alert:', {
       ` : ''}
     </td>
   </tr>`;
-}).join('') || '<tr><td colspan="9">No issue records yet.</td></tr>';(l=>{const overdue=l.status==='issued'&&l.due_date<new Date().toISOString().slice(0,10);return `<tr><td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td><td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td><td>${safe(l.library_name)}</td><td>${safe(l.issue_date)}</td><td>${safe(l.due_date)}${overdue?' <span class="badge">Overdue</span>':''}</td><td>${safe(l.return_date||'—')}</td><td>${Number(l.fine_amount||0).toFixed(2)}${Number(l.fine_paid||0)>0?` (paid ${Number(l.fine_paid).toFixed(2)})`:''}</td><td>${safe(l.status)} ${l.status==='issued'?`<button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">No issue records yet.</td></tr>';
+}).join('') || '<tr><td colspan="9">No issue records yet.</td></tr>'
     const r=state.report||{stats:{}};const stats=r.stats||{};
     const lowStockCount = state.books.filter(b => {
   const available = state.copies.filter(c =>
