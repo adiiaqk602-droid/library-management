@@ -1180,44 +1180,277 @@ console.log('AQK Minimum Stock Alert:', {
   </tr>
 `).join('') || '<tr><td colspan="5">No racks yet.</td></tr>';renderAQKMembers();
     $('copyRows').innerHTML=state.copies.map(c=>`<tr><td>${safe(c.copy_code)}</td><td>${safe(c.title)}</td><td>${safe(c.library_name)}</td><td>${safe(c.stock_type)}</td><td>${safe(c.condition)}</td><td><span class="badge">${safe(c.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">No inventory yet.</td></tr>';
-   $('loanRows').innerHTML = state.loans.map(l => {
-  const overdue = l.status === 'issued' &&
-    l.due_date < new Date().toISOString().slice(0,10);
+  
+const renderLoanRows = (records) => {
+  const today = new Date().toISOString().slice(0, 10);
 
-  return `<tr>
-    <td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td>
-    <td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td>
-    <td>${safe(l.library_name)}</td>
-    <td>${safe(l.issue_date)}</td>
-    <td>${safe(l.due_date)}${overdue ? ' <span class="badge">Overdue</span>' : ''}</td>
-    <td>${safe(l.return_date || '—')}</td>
-    <td>
-      ${Number(l.fine_amount || 0).toFixed(2)}
-      ${Number(l.fine_paid || 0) > 0 ? ` (paid ${Number(l.fine_paid).toFixed(2)})` : ''}
-    </td>
-    <td>
-      ${safe(l.status)}
-      ${l.status === 'issued' ? `
-        <button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>
-      ` : ''}
-    </td>
-    <td>
-      ${l.status === 'issued' ? `
-        <button class="actionBtn" onclick="window.editAQKLoan(${Number(l.id)})">Edit Issue</button>
-        ${isAdmin() ? `
-          <button class="actionBtn danger" onclick="window.cancelAQKLoan(${Number(l.id)})">Cancel</button>
+  $('loanRows').innerHTML = records.map(l => {
+    const overdue = l.status === 'issued' && l.due_date < today;
+
+    return `<tr>
+      <td>${safe(l.full_name)}<div class="muted small">${safe(l.member_no)}</div></td>
+      <td>${safe(l.title)}<div class="muted small">${safe(l.copy_code)}</div></td>
+      <td>${safe(l.library_name)}</td>
+      <td>${safe(l.issue_date)}</td>
+      <td>${safe(l.due_date)}${overdue ? ' <span class="badge">Overdue</span>' : ''}</td>
+      <td>${safe(l.return_date || '—')}</td>
+      <td>
+        ${Number(l.fine_amount || 0).toFixed(2)}
+        ${Number(l.fine_paid || 0) > 0 ? ` (paid ${Number(l.fine_paid).toFixed(2)})` : ''}
+      </td>
+      <td>
+        ${safe(l.status)}
+        ${l.status === 'issued' ? `
+          <button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>
         ` : ''}
-      ` : ''}
-      ${['returned','lost'].includes(l.status) && isAdmin() ? `
-        <button class="actionBtn" onclick="window.editAQKReturn(${Number(l.id)})">Edit Return</button>
-        ${isAdmin() ? `
-  <button class="actionBtn danger"
-    onclick="window.deleteAQKLoan(${Number(l.id)})">Delete</button>
-` : ''}
-      ` : ''}
-    </td>
-  </tr>`;
-}).join('') || '<tr><td colspan="9">No issue records yet.</td></tr>'
+      </td>
+      <td>
+        ${l.status === 'issued' ? `
+          <button class="actionBtn" onclick="window.editAQKLoan(${Number(l.id)})">Edit Issue</button>
+          ${isAdmin() ? `
+            <button class="actionBtn danger" onclick="window.cancelAQKLoan(${Number(l.id)})">Cancel</button>
+          ` : ''}
+        ` : ''}
+        ${['returned','lost'].includes(l.status) && isAdmin() ? `
+          <button class="actionBtn" onclick="window.editAQKReturn(${Number(l.id)})">Edit Return</button>
+          <button class="actionBtn danger" onclick="window.deleteAQKLoan(${Number(l.id)})">Delete</button>
+        ` : ''}
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9">No issue records found.</td></tr>';
+
+  $('loanFilterSummary').innerHTML = `
+    <div class="stat">
+      <span>Showing Records</span>
+      <strong>${records.length}</strong>
+    </div>
+    <div class="stat">
+      <span>Total Fine</span>
+      <strong>Rs. ${records.reduce((s,l) => s + Number(l.fine_amount || 0), 0).toFixed(2)}</strong>
+    </div>
+  `;
+};
+
+const applyLoanFilters = () => {
+  const member = $('loanFilterMember').value.trim().toLowerCase();
+  const book = $('loanFilterBook').value.trim().toLowerCase();
+  const issueFrom = $('loanIssueFrom').value;
+  const issueTo = $('loanIssueTo').value;
+  const dueFrom = $('loanDueFrom').value;
+  const dueTo = $('loanDueTo').value;
+  const returnFrom = $('loanReturnFrom').value;
+  const returnTo = $('loanReturnTo').value;
+  const status = $('loanFilterStatus').value;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if ((issueFrom && issueTo && issueFrom > issueTo) ||
+      (dueFrom && dueTo && dueFrom > dueTo) ||
+      (returnFrom && returnTo && returnFrom > returnTo)) {
+    message('From Date cannot be after To Date.');
+    return;
+  }
+
+  const filtered = state.loans.filter(l => {
+    const memberData = `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
+    const bookData = `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
+
+    if (member && !memberData.includes(member)) return false;
+    if (book && !bookData.includes(book)) return false;
+
+    const issue = String(l.issue_date || '').slice(0,10);
+    const due = String(l.due_date || '').slice(0,10);
+    const returned = String(l.return_date || '').slice(0,10);
+
+    if (issueFrom && (!issue || issue < issueFrom)) return false;
+    if (issueTo && (!issue || issue > issueTo)) return false;
+
+    if (dueFrom && (!due || due < dueFrom)) return false;
+    if (dueTo && (!due || due > dueTo)) return false;
+
+    if (returnFrom && (!returned || returned < returnFrom)) return false;
+    if (returnTo && (!returned || returned > returnTo)) return false;
+
+    if (status === 'overdue') {
+      if (!(l.status === 'issued' && due < today)) return false;
+    } else if (status && String(l.status).toLowerCase() !== status) {
+      return false;
+    }
+
+    return true;
+  });
+
+  renderLoanRows(filtered);
+};
+
+// Filter buttons
+$('applyLoanFilters').onclick = applyLoanFilters;
+
+$('resetLoanFilters').onclick = () => {
+  [
+    'loanFilterMember',
+    'loanFilterBook',
+    'loanIssueFrom',
+    'loanIssueTo',
+    'loanDueFrom',
+    'loanDueTo',
+    'loanReturnFrom',
+    'loanReturnTo',
+    'loanFilterStatus'
+  ].forEach(id => $(id).value = '');
+
+  renderLoanRows(state.loans);
+};
+
+// Print Register
+const printLoanRegister = (records, reportType) => {
+  const w = window.open('', '_blank');
+
+  if (!w) {
+    message('Please allow pop-ups to print.');
+    return;
+  }
+
+  const totalFine = records.reduce(
+    (sum, l) => sum + Number(l.fine_amount || 0), 0
+  );
+
+  const rows = records.map(l => `
+    <tr>
+      <td>${safe(l.full_name)}</td>
+      <td>${safe(l.member_no)}</td>
+      <td>${safe(l.title)}</td>
+      <td>${safe(l.copy_code)}</td>
+      <td>${safe(l.library_name)}</td>
+      <td>${safe(l.issue_date)}</td>
+      <td>${safe(l.due_date)}</td>
+      <td>${safe(l.return_date || '—')}</td>
+      <td>${Number(l.fine_amount || 0).toFixed(2)}</td>
+      <td>${safe(l.status)}</td>
+    </tr>
+  `).join('');
+
+  w.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>AQK Issue Return Register</title>
+      <style id="pageStyle">
+        @page { size: A4 landscape; margin: 10mm; }
+      </style>
+      <style>
+        body { font-family: Arial; color: #222; }
+        h2, h3, p { text-align: center; margin: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #555; padding: 6px; font-size: 10px; }
+        th { background: #eee4d1; }
+        .toolbar { text-align: center; margin: 15px; }
+        button { padding: 9px 16px; margin: 4px; cursor: pointer; }
+        .summary { margin-top: 15px; font-weight: bold; }
+        @media print {
+          .toolbar { display: none; }
+          th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          tr { break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="toolbar">
+        <button onclick="setPage('portrait')">A4 Portrait</button>
+        <button onclick="setPage('landscape')">A4 Landscape</button>
+        <button onclick="window.print()">Print Register</button>
+      </div>
+
+      <h2>Dr A Q Khan School &amp; College</h2>
+      <p>Bahria Town Phase-8</p>
+      <h3>AQK Library Management System</h3>
+      <h3>${reportType}</h3>
+      <p>Generated: ${new Date().toLocaleDateString()}</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Member ID</th>
+            <th>Book Title</th>
+            <th>Copy No.</th>
+            <th>Library</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Return Date</th>
+            <th>Fine (Rs.)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="10">No records found.</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="summary">
+        Total Records: ${records.length}
+        &nbsp; | &nbsp;
+        Total Fine: Rs. ${totalFine.toFixed(2)}
+      </div>
+
+      <script>
+        function setPage(mode) {
+          document.getElementById('pageStyle').textContent =
+            '@page { size: A4 ' + mode + '; margin: 10mm; }';
+        }
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  w.document.close();
+};
+
+$('printLoanFiltered').onclick = () => {
+  applyLoanFilters();
+  const records = [...document.querySelectorAll('#loanRows tr')]
+    .map(row => row.dataset.loanId)
+    .filter(Boolean);
+};
+
+// Print filtered records directly
+$('printLoanFiltered').onclick = () => {
+  const member = $('loanFilterMember').value.trim().toLowerCase();
+  const book = $('loanFilterBook').value.trim().toLowerCase();
+  const status = $('loanFilterStatus').value;
+  const today = new Date().toISOString().slice(0,10);
+
+  const filtered = state.loans.filter(l => {
+    const memberData = `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
+    const bookData = `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
+    const issue = String(l.issue_date || '').slice(0,10);
+    const due = String(l.due_date || '').slice(0,10);
+    const returned = String(l.return_date || '').slice(0,10);
+
+    if (member && !memberData.includes(member)) return false;
+    if (book && !bookData.includes(book)) return false;
+    if ($('loanIssueFrom').value && issue < $('loanIssueFrom').value) return false;
+    if ($('loanIssueTo').value && issue > $('loanIssueTo').value) return false;
+    if ($('loanDueFrom').value && due < $('loanDueFrom').value) return false;
+    if ($('loanDueTo').value && due > $('loanDueTo').value) return false;
+    if ($('loanReturnFrom').value && (!returned || returned < $('loanReturnFrom').value)) return false;
+    if ($('loanReturnTo').value && (!returned || returned > $('loanReturnTo').value)) return false;
+
+    if (status === 'overdue') {
+      return l.status === 'issued' && due < today;
+    }
+
+    return !status || l.status === status;
+  });
+
+  printLoanRegister(filtered, 'FILTERED ISSUE / RETURN REGISTER');
+};
+
+$('printLoanComplete').onclick = () => {
+  printLoanRegister(state.loans, 'COMPLETE ISSUE / RETURN REGISTER');
+};
+
+renderLoanRows(state.loans);
     const r=state.report||{stats:{}};const stats=r.stats||{};
     const lowStockCount = state.books.filter(b => {
   const available = state.copies.filter(c =>
