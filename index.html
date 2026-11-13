@@ -714,64 +714,40 @@
 
   <hr>
 
-  <h3>Search &amp; Filter Issue / Return Records</h3>
+ <h3>Search &amp; Filter Issue / Return Records</h3>
 
-  <div class="formGrid">
+<div class="formGrid">
 
-    <label>Member Name / Membership ID
-      <input type="search" id="loanFilterMember"
-        placeholder="Search member or ID">
-    </label>
+  <label>Member Name / Membership ID
+    <input type="search" id="loanFilterMember"
+      placeholder="Search member or ID">
+  </label>
 
-    <label>Book Title / Copy Number
-      <input type="search" id="loanFilterBook"
-        placeholder="Search book or accession number">
-    </label>
+  <label>Book Title / Copy Number
+    <input type="search" id="loanFilterBook"
+      placeholder="Search book or accession number">
+  </label>
 
-    <label>Issue Date From
-      <input type="date" id="loanIssueFrom">
-    </label>
+  <label>Record Status
+    <select id="loanFilterStatus">
+      <option value="">All Records</option>
+      <option value="issued">Issued</option>
+      <option value="returned">Returned</option>
+      <option value="overdue">Overdue</option>
+      <option value="lost">Lost</option>
+      <option value="damaged">Damaged</option>
+    </select>
+  </label>
 
-    <label>Issue Date To
-      <input type="date" id="loanIssueTo">
-    </label>
+  <button type="button" id="applyLoanFilters">
+    Apply Filters
+  </button>
 
-    <label>Due Date From
-      <input type="date" id="loanDueFrom">
-    </label>
+  <button type="button" class="secondary" id="resetLoanFilters">
+    Reset Filters
+  </button>
 
-    <label>Due Date To
-      <input type="date" id="loanDueTo">
-    </label>
-
-    <label>Return Date From
-      <input type="date" id="loanReturnFrom">
-    </label>
-
-    <label>Return Date To
-      <input type="date" id="loanReturnTo">
-    </label>
-
-    <label>Record Status
-      <select id="loanFilterStatus">
-        <option value="">All Records</option>
-        <option value="issued">Issued</option>
-        <option value="returned">Returned</option>
-        <option value="overdue">Overdue</option>
-        <option value="lost">Lost</option>
-        <option value="damaged">Damaged</option>
-      </select>
-    </label>
-
-    <button type="button" id="applyLoanFilters">
-      Apply Filters
-    </button>
-
-    <button type="button" class="secondary" id="resetLoanFilters">
-      Reset Filters
-    </button>
-
-  </div>
+</div>
 
   <div class="stats" id="loanFilterSummary"></div>
 
