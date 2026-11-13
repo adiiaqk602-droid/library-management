@@ -1234,45 +1234,27 @@ const renderLoanRows = (records) => {
 const applyLoanFilters = () => {
   const member = $('loanFilterMember').value.trim().toLowerCase();
   const book = $('loanFilterBook').value.trim().toLowerCase();
-  const issueFrom = $('loanIssueFrom').value;
-  const issueTo = $('loanIssueTo').value;
-  const dueFrom = $('loanDueFrom').value;
-  const dueTo = $('loanDueTo').value;
-  const returnFrom = $('loanReturnFrom').value;
-  const returnTo = $('loanReturnTo').value;
   const status = $('loanFilterStatus').value;
   const today = new Date().toISOString().slice(0, 10);
 
-  if ((issueFrom && issueTo && issueFrom > issueTo) ||
-      (dueFrom && dueTo && dueFrom > dueTo) ||
-      (returnFrom && returnTo && returnFrom > returnTo)) {
-    message('From Date cannot be after To Date.');
-    return;
-  }
-
   const filtered = state.loans.filter(l => {
-    const memberData = `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
-    const bookData = `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
+    const memberData =
+      `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
+
+    const bookData =
+      `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
+
+    const due = String(l.due_date || '').slice(0, 10);
 
     if (member && !memberData.includes(member)) return false;
     if (book && !bookData.includes(book)) return false;
 
-    const issue = String(l.issue_date || '').slice(0,10);
-    const due = String(l.due_date || '').slice(0,10);
-    const returned = String(l.return_date || '').slice(0,10);
-
-    if (issueFrom && (!issue || issue < issueFrom)) return false;
-    if (issueTo && (!issue || issue > issueTo)) return false;
-
-    if (dueFrom && (!due || due < dueFrom)) return false;
-    if (dueTo && (!due || due > dueTo)) return false;
-
-    if (returnFrom && (!returned || returned < returnFrom)) return false;
-    if (returnTo && (!returned || returned > returnTo)) return false;
-
     if (status === 'overdue') {
       if (!(l.status === 'issued' && due < today)) return false;
-    } else if (status && String(l.status).toLowerCase() !== status) {
+    } else if (
+      status &&
+      String(l.status).toLowerCase() !== status
+    ) {
       return false;
     }
 
@@ -1286,7 +1268,12 @@ const applyLoanFilters = () => {
 $('applyLoanFilters').onclick = applyLoanFilters;
 
 $('resetLoanFilters').onclick = () => {
-  [
+  $('loanFilterMember').value = '';
+  $('loanFilterBook').value = '';
+  $('loanFilterStatus').value = '';
+
+  renderLoanRows(state.loans);
+};
     'loanFilterMember',
     'loanFilterBook',
     'loanIssueFrom',
@@ -1407,14 +1394,37 @@ const printLoanRegister = (records, reportType) => {
 };
 
 $('printLoanFiltered').onclick = () => {
-  applyLoanFilters();
-  const records = [...document.querySelectorAll('#loanRows tr')]
-    .map(row => row.dataset.loanId)
-    .filter(Boolean);
-};
+  const member = $('loanFilterMember').value.trim().toLowerCase();
+  const book = $('loanFilterBook').value.trim().toLowerCase();
+  const status = $('loanFilterStatus').value;
+  const today = new Date().toISOString().slice(0, 10);
 
-// Print filtered records directly
-$('printLoanFiltered').onclick = () => {
+  const filtered = state.loans.filter(l => {
+    const memberData =
+      `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
+
+    const bookData =
+      `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
+
+    const due = String(l.due_date || '').slice(0, 10);
+
+    if (member && !memberData.includes(member)) return false;
+    if (book && !bookData.includes(book)) return false;
+
+    if (status === 'overdue') {
+      if (!(l.status === 'issued' && due < today)) return false;
+    } else if (
+      status &&
+      String(l.status).toLowerCase() !== status
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
+  printLoanRegister(filtered, 'FILTERED ISSUE / RETURN REGISTER');
+};
   const member = $('loanFilterMember').value.trim().toLowerCase();
   const book = $('loanFilterBook').value.trim().toLowerCase();
   const status = $('loanFilterStatus').value;
