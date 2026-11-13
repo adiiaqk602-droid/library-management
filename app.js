@@ -1272,22 +1272,6 @@ $('resetLoanFilters').onclick = () => {
   $('loanFilterBook').value = '';
   $('loanFilterStatus').value = '';
 
-  renderLoanRows(state.loans);
-};
-    'loanFilterMember',
-    'loanFilterBook',
-    'loanIssueFrom',
-    'loanIssueTo',
-    'loanDueFrom',
-    'loanDueTo',
-    'loanReturnFrom',
-    'loanReturnTo',
-    'loanFilterStatus'
-  ].forEach(id => $(id).value = '');
-
-  renderLoanRows(state.loans);
-};
-
 // Print Register
 const printLoanRegister = (records, reportType) => {
   const w = window.open('', '_blank');
