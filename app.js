@@ -1434,29 +1434,38 @@ const printLoanRegister = (records, reportType) => {
   w.document.close();
 };
 
+
+// Print Filtered Register
 $('printLoanFiltered').onclick = () => {
-  printLoanRegister(filtered, 'FILTERED ISSUE / RETURN REGISTER');
-};
   const member = $('loanFilterMember').value.trim().toLowerCase();
   const book = $('loanFilterBook').value.trim().toLowerCase();
   const status = $('loanFilterStatus').value;
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toISOString().slice(0, 10);
 
   const filtered = state.loans.filter(l => {
-    const memberData = `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
-    const bookData = `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
-    const issue = String(l.issue_date || '').slice(0,10);
-    const due = String(l.due_date || '').slice(0,10);
-    const returned = String(l.return_date || '').slice(0,10);
+    const memberData =
+      `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
+
+    const bookData =
+      `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
+
+    const issue = String(l.issue_date || '').slice(0, 10);
+    const due = String(l.due_date || '').slice(0, 10);
+    const returned = String(l.return_date || '').slice(0, 10);
 
     if (member && !memberData.includes(member)) return false;
     if (book && !bookData.includes(book)) return false;
+
     if ($('loanIssueFrom').value && issue < $('loanIssueFrom').value) return false;
     if ($('loanIssueTo').value && issue > $('loanIssueTo').value) return false;
     if ($('loanDueFrom').value && due < $('loanDueFrom').value) return false;
     if ($('loanDueTo').value && due > $('loanDueTo').value) return false;
-    if ($('loanReturnFrom').value && (!returned || returned < $('loanReturnFrom').value)) return false;
-    if ($('loanReturnTo').value && (!returned || returned > $('loanReturnTo').value)) return false;
+
+    if ($('loanReturnFrom').value &&
+        (!returned || returned < $('loanReturnFrom').value)) return false;
+
+    if ($('loanReturnTo').value &&
+        (!returned || returned > $('loanReturnTo').value)) return false;
 
     if (status === 'overdue') {
       return l.status === 'issued' && due < today;
@@ -1469,6 +1478,9 @@ $('printLoanFiltered').onclick = () => {
 };
 
 $('printLoanComplete').onclick = () => {
+  printLoanRegister(state.loans, 'COMPLETE ISSUE / RETURN REGISTER');
+};
+
   printLoanRegister(state.loans, 'COMPLETE ISSUE / RETURN REGISTER');
 };
 
