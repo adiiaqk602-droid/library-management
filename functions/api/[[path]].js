@@ -1426,6 +1426,186 @@ if(loanDeleteMatch && method==='DELETE'){
     const status=disposition==='lost'?'lost':'returned';await env.DB.prepare('UPDATE loans SET status=?,return_date=?,returned_by=?,fine_amount=?,notes=?,return_disposition=? WHERE id=?'
 ).bind(status,returnDate,user.id,fine,String(d.notes||'').slice(0,500),disposition,loan.id).run();await env.DB.prepare('UPDATE book_copies SET status=?,condition=? WHERE id=?').bind(disposition==='lost'?'lost':disposition==='damaged'?'damaged':'available',disposition==='lost'?'Lost':disposition==='damaged'?'Damaged':'Good',loan.copy_id).run();await audit(env,user,'return','loans',loan.id,`fine=${fine}; disposition=${disposition}`);return json({ok:true,fine,lateDays});
   }
+  
+// FINE PAYMENTS - LIST PAYMENT RECORDS
+if(path==='fine-payments'&&method==='GET'){
+  const rows=await env.DB.prepare(`
+    SELECT
+      p.*,
+      m.full_name,
+      m.member_no,
+      l.fine_amount,
+      b.title,
+      u.full_name AS received_by_name
+    FROM fine_payments p
+    JOIN loans l ON l.id=p.loan_id
+    JOIN members m ON m.id=p.member_id
+    JOIN book_copies bc ON bc.id=l.copy_id
+    JOIN books b ON b.id=bc.book_id
+    LEFT JOIN users u ON u.id=p.received_by
+    WHERE 1=1
+    ${isAdmin(user)?'':'AND p.library_id=?'}
+    ORDER BY p.payment_date DESC,p.id DESC
+    LIMIT 1000
+  `).bind(...(isAdmin(user)?[]:[user.library_id])).all();
+
+  return json({data:rows.results||[]});
+}
+
+// RECEIVE FINE PAYMENT
+if(path==='fine-payments'&&method==='POST'){
+  const d=await bodyJson(request);
+  const loanId=Number(d?.loan_id);
+  const amount=Number(d?.amount);
+
+  if(!loanId || !Number.isFinite(amount) || amount<=0)
+    return fail('Valid loan ID and payment amount are required.');
+
+  const loan=await env.DB.prepare(`
+    SELECT l.*,m.full_name,m.member_no,b.title
+    FROM loans l
+    JOIN members m ON m.id=l.member_id
+    JOIN book_copies bc ON bc.id=l.copy_id
+    JOIN books b ON b.id=bc.book_id
+    WHERE l.id=?
+  `).bind(loanId).first();
+
+  if(!loan)
+    return fail('Loan record not found.',404);
+
+  if(!assertLibrary(user,loan.library_id))
+    return fail('You cannot collect fine for another library.',403);
+
+  if(loan.status==='issued')
+    return fail('Please return the book before collecting its fine.');
+
+  const totalFine=Number(loan.fine_amount||0);
+
+  if(totalFine<=0)
+    return fail('No fine is payable for this loan.');
+
+  const paidRow=await env.DB.prepare(`
+    SELECT COALESCE(SUM(amount),0) AS paid
+    FROM fine_payments
+    WHERE loan_id=? AND library_id=?
+  `).bind(loanId,loan.library_id).first();
+
+  const alreadyPaid=Number(paidRow?.paid||0);
+  const outstanding=Math.max(0,totalFine-alreadyPaid);
+
+  if(amount>outstanding+0.001)
+    return fail(`Payment exceeds remaining fine. Remaining amount: Rs. ${outstanding.toFixed(2)}`);
+
+  const paymentDate=String(
+    d.payment_date||new Date().toISOString().slice(0,10)
+  );
+
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate))
+    return fail('Invalid payment date.');
+
+  const result=await env.DB.prepare(`
+    INSERT INTO fine_payments
+    (loan_id,library_id,member_id,amount,payment_date,received_by,notes)
+    VALUES(?,?,?,?,?,?,?)
+  `).bind(
+    loanId,
+    loan.library_id,
+    loan.member_id,
+    amount,
+    paymentDate,
+    user.id,
+    String(d.notes||'').slice(0,500)||null
+  ).run();
+
+  await audit(
+    env,user,'create','fine_payments',
+    result.meta.last_row_id,
+    `Loan ${loanId}; payment Rs. ${amount}`
+  );
+
+  return json({
+    ok:true,
+    id:result.meta.last_row_id,
+    amount,
+    totalFine,
+    paid:alreadyPaid+amount,
+    outstanding:Math.max(0,outstanding-amount),
+    paymentDate,
+    memberName:loan.full_name,
+    memberNo:loan.member_no,
+    bookTitle:loan.title
+  },201);
+}
+
+// SINGLE FINE PAYMENT - RECEIPT DETAILS
+const fineReceiptMatch=path.match(/^fine-payments\/(\d+)$/);
+
+if(fineReceiptMatch&&method==='GET'){
+  const paymentId=Number(fineReceiptMatch[1]);
+
+  const payment=await env.DB.prepare(`
+    SELECT
+      p.*,
+      m.full_name,
+      m.member_no,
+      l.fine_amount,
+      l.return_date,
+      b.title,
+      b.author,
+      lib.name AS library_name,
+      u.full_name AS received_by_name
+    FROM fine_payments p
+    JOIN loans l ON l.id=p.loan_id
+    JOIN members m ON m.id=p.member_id
+    JOIN book_copies bc ON bc.id=l.copy_id
+    JOIN books b ON b.id=bc.book_id
+    JOIN libraries lib ON lib.id=p.library_id
+    LEFT JOIN users u ON u.id=p.received_by
+    WHERE p.id=?
+  `).bind(paymentId).first();
+
+  if(!payment)
+    return fail('Fine payment receipt not found.',404);
+
+  if(!assertLibrary(user,payment.library_id))
+    return fail('You cannot view another library receipt.',403);
+
+  return json({data:payment});
+}
+
+// MONTHLY FINE COLLECTION REPORT
+if(path==='fine-payments/monthly'&&method==='GET'){
+  const month=String(url.searchParams.get('month')||'');
+
+  if(!/^\d{4}-\d{2}$/.test(month))
+    return fail('Month is required in YYYY-MM format.');
+
+  const rows=await env.DB.prepare(`
+    SELECT
+      p.payment_date,
+      COUNT(*) AS payment_count,
+      SUM(p.amount) AS collected_amount
+    FROM fine_payments p
+    WHERE strftime('%Y-%m',p.payment_date)=?
+    ${isAdmin(user)?'':'AND p.library_id=?'}
+    GROUP BY p.payment_date
+    ORDER BY p.payment_date
+  `).bind(...(isAdmin(user)?[month]:[month,user.library_id])).all();
+
+  const total=await env.DB.prepare(`
+    SELECT COALESCE(SUM(amount),0) AS total
+    FROM fine_payments
+    WHERE strftime('%Y-%m',payment_date)=?
+    ${isAdmin(user)?'':'AND library_id=?'}
+  `).bind(...(isAdmin(user)?[month]:[month,user.library_id])).first();
+
+  return json({
+    month,
+    daily:rows.results||[],
+    total:Number(total?.total||0)
+  });
+}
+
   if(path==='loans'&&method==='GET'){
     const rows=await env.DB.prepare(`SELECT l.*,m.full_name,m.member_no,bc.copy_code,b.title,b.price,lib.name library_name FROM loans l JOIN members m ON m.id=l.member_id JOIN book_copies bc ON bc.id=l.copy_id JOIN books b ON b.id=bc.book_id JOIN libraries lib ON lib.id=l.library_id WHERE 1=1${isAdmin(user)?'':' AND l.library_id=?'} ORDER BY l.created_at DESC LIMIT 1000`).bind(...(isAdmin(user)?[]:[user.library_id])).all();return json({data:rows.results||[]});
   }
