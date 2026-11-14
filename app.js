@@ -1,10 +1,3 @@
-$('resetLoanFilters').onclick = () => {
-  $('loanFilterMember').value = '';
-  $('loanFilterBook').value = '';
-  $('loanFilterStatus').value = '';
-  applyLoanFilters();
-};
-
 // Print Register
 (() => {
   const API = (window.AQK_CONFIG?.API_BASE || '/api').replace(/\/$/, '');
