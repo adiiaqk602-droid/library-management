@@ -5,7 +5,8 @@ $('resetLoanFilters').onclick = () => {
   applyLoanFilters();
 };
 
-// Print Register(() => {
+// Print Register
+(() => {
   const API = (window.AQK_CONFIG?.API_BASE || '/api').replace(/\/$/, '');
   const $ = id => document.getElementById(id);
   const safe = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
