@@ -1481,9 +1481,6 @@ $('printLoanComplete').onclick = () => {
   printLoanRegister(state.loans, 'COMPLETE ISSUE / RETURN REGISTER');
 };
 
-  printLoanRegister(state.loans, 'COMPLETE ISSUE / RETURN REGISTER');
-};
-
 renderLoanRows(state.loans);
     const r=state.report||{stats:{}};const stats=r.stats||{};
     const lowStockCount = state.books.filter(b => {
@@ -3853,6 +3850,7 @@ if (loanForm?.elements?.due_date) {
   loanForm.elements.due_date.value = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
 }
 
+} // E-Books section close
+
 init();
 })();
- 
