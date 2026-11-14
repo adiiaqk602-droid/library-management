@@ -1198,12 +1198,20 @@ const renderLoanRows = (records) => {
         ${Number(l.fine_amount || 0).toFixed(2)}
         ${Number(l.fine_paid || 0) > 0 ? ` (paid ${Number(l.fine_paid).toFixed(2)})` : ''}
       </td>
-      <td>
-        ${safe(l.status)}
-        ${l.status === 'issued' ? `
-          <button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>
-        ` : ''}
-      </td>
+     <td>
+  ${safe(l.status)}
+
+  ${l.status === 'issued' ? `
+    <button class="actionBtn" onclick="window.returnAQKLoan(${Number(l.id)})">Return</button>
+  ` : ''}
+
+  ${['returned','lost'].includes(l.status) &&
+    Number(l.fine_amount || 0) > Number(l.fine_paid || 0) ? `
+    <button class="actionBtn" onclick="window.collectAQKFine(${Number(l.id)})">
+      Collect Fine
+    </button>
+  ` : ''}
+</td>
       <td>
         ${l.status === 'issued' ? `
           <button class="actionBtn" onclick="window.editAQKLoan(${Number(l.id)})">Edit Issue</button>
@@ -1263,7 +1271,47 @@ const applyLoanFilters = () => {
 
   renderLoanRows(filtered);
 };
+// MONTHLY FINE COLLECTION REPORT
+const fineMonthInput = $('fineReportMonth');
 
+if (fineMonthInput) {
+  fineMonthInput.value = new Date().toISOString().slice(0, 7);
+}
+
+$('loadFineReport').onclick = async () => {
+  const month = $('fineReportMonth').value;
+
+  if (!month) {
+    message('Please select a month.');
+    return;
+  }
+
+  try {
+    const report = await api(
+      `fine-payments/monthly?month=${encodeURIComponent(month)}`
+    );
+
+    $('fineReportSummary').innerHTML = `
+      <div class="stat">
+        <span>Total Fine Collected</span>
+        <strong>Rs. ${Number(report.total || 0).toFixed(2)}</strong>
+      </div>
+    `;
+
+    $('fineReportRows').innerHTML =
+      (report.daily || []).map(row => `
+        <tr>
+          <td>${safe(row.payment_date)}</td>
+          <td>${Number(row.payment_count || 0)}</td>
+          <td>Rs. ${Number(row.collected_amount || 0).toFixed(2)}</td>
+        </tr>
+      `).join('') ||
+      '<tr><td colspan="3">No fine payments found for this month.</td></tr>';
+
+  } catch (e) {
+    message(e.message);
+  }
+};
 // Filter buttons
 $('applyLoanFilters').onclick = applyLoanFilters;
 
