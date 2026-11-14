@@ -3840,7 +3840,6 @@ if (ebookStat) {
       $('ebookPdfFrame').src = 'about:blank';
       hide('ebookReader');
     });
-  }
 
 if (bookForm?.elements?.entry_date) {
   bookForm.elements.entry_date.value = new Date().toISOString().slice(0, 10);
