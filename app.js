@@ -1,4 +1,11 @@
-(() => {
+$('resetLoanFilters').onclick = () => {
+  $('loanFilterMember').value = '';
+  $('loanFilterBook').value = '';
+  $('loanFilterStatus').value = '';
+  applyLoanFilters();
+};
+
+// Print Register(() => {
   const API = (window.AQK_CONFIG?.API_BASE || '/api').replace(/\/$/, '');
   const $ = id => document.getElementById(id);
   const safe = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1319,6 +1326,8 @@ $('resetLoanFilters').onclick = () => {
   $('loanFilterMember').value = '';
   $('loanFilterBook').value = '';
   $('loanFilterStatus').value = '';
+  applyLoanFilters();
+};
 
 // Print Register
 const printLoanRegister = (records, reportType) => {
@@ -1426,35 +1435,6 @@ const printLoanRegister = (records, reportType) => {
 };
 
 $('printLoanFiltered').onclick = () => {
-  const member = $('loanFilterMember').value.trim().toLowerCase();
-  const book = $('loanFilterBook').value.trim().toLowerCase();
-  const status = $('loanFilterStatus').value;
-  const today = new Date().toISOString().slice(0, 10);
-
-  const filtered = state.loans.filter(l => {
-    const memberData =
-      `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
-
-    const bookData =
-      `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
-
-    const due = String(l.due_date || '').slice(0, 10);
-
-    if (member && !memberData.includes(member)) return false;
-    if (book && !bookData.includes(book)) return false;
-
-    if (status === 'overdue') {
-      if (!(l.status === 'issued' && due < today)) return false;
-    } else if (
-      status &&
-      String(l.status).toLowerCase() !== status
-    ) {
-      return false;
-    }
-
-    return true;
-  });
-
   printLoanRegister(filtered, 'FILTERED ISSUE / RETURN REGISTER');
 };
   const member = $('loanFilterMember').value.trim().toLowerCase();
