@@ -750,7 +750,37 @@
 </div>
 
   <div class="stats" id="loanFilterSummary"></div>
+<div class="panel" style="margin:15px 0;padding:15px">
+  <h3>Monthly Fine Collection Report</h3>
 
+  <div class="formGrid">
+    <label>
+      Select Month
+      <input type="month" id="fineReportMonth">
+    </label>
+
+    <button type="button" id="loadFineReport">
+      View Fine Report
+    </button>
+  </div>
+
+  <div id="fineReportSummary" class="stats"></div>
+
+  <div class="tableWrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Payment Date</th>
+          <th>Payments</th>
+          <th>Collected Fine (Rs.)</th>
+        </tr>
+      </thead>
+      <tbody id="fineReportRows">
+        <tr><td colspan="3">Select month to view report.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
   <div class="formGrid">
     <button type="button" id="printLoanFiltered">
       Print Filtered Register
