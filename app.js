@@ -1738,8 +1738,10 @@ if (fineBox) {
 $('statusText').textContent=`Connected to Cloudflare D1 · Signed in as ${state.user.role.replace('_',' ')}.`;
     document.querySelectorAll('[data-admin-only]').forEach(el=>el.classList.toggle('hidden',!isAdmin()));hide('setupPanel');hide('loginPanel');show('appPanel');
     if(isAdmin()){show('fineSettings');$('userRows').innerHTML=state.users.map(u=>`<tr><td>${safe(u.full_name)}</td><td>${safe(u.email)}</td><td>${safe(u.role)}</td><td>${safe(state.libraries.find(l=>l.id==u.library_id)?.name||'All libraries')}</td><td>${u.active?'Active':'Disabled'}</td><td>${u.role==='librarian'?`<button class="actionBtn" onclick="window.toggleAQKUser(${Number(u.id)},${u.active?0:1})">${u.active?'Disable':'Enable'}</button>`:''}</td></tr>`).join('');}else hide('fineSettings');
+    
+  } // END render()
     async function refresh(){
-    const [libs,cats,wings,racks,books,members,copies,loans,report,settings]=await Promise.all(['libraries','categories','wings','racks','books','members','copies','loans','reports','settings'].map(p=>api(p).catch(e=>({error:e.message,data:[]}))));
+      const [libs,cats,wings,racks,books,members,copies,loans,report,settings]=await Promise.all(['libraries','categories','wings','racks','books','members','copies','loans','reports','settings'].map(p=>api(p).catch(e=>({error:e.message,data:[]}))));
     for(const [name,res] of [['libraries',libs],['categories',cats],['wings',wings],['racks',racks],['books',books],['members',members],['copies',copies],['loans',loans]])if(res.error)throw new Error(`${name}: ${res.error}`);
     state.libraries=libs.data||[];state.categories=cats.data||[];state.wings=wings.data||[];state.racks=racks.data||[];state.books=books.data||[];state.members=members.data||[];state.copies=copies.data||[];state.loans=loans.data||[];state.report=report;state.settings=Object.fromEntries((settings.data||[]).map(x=>[x.key,x.value]));
     
