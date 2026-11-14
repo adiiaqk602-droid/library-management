@@ -2505,6 +2505,125 @@ window.editAQKMember = id => {
   message('Member details loaded. Edit the fields and click Update Member.');
 };
   window.returnAQKLoan=async id=>{const disposition=prompt('Return condition: type returned, damaged, or lost','returned');if(disposition===null)return;if(!['returned','damaged','lost'].includes(disposition.toLowerCase())){message('Use returned, damaged, or lost.');return;}const return_date=new Date().toISOString().slice(0,10);try{const r=await api('return',{method:'POST',body:JSON.stringify({id,disposition:disposition.toLowerCase(),return_date})});message(`Return saved. Fine calculated: Rs. ${Number(r.fine||0).toFixed(2)} (${r.lateDays} late days).`);await refresh();}catch(e){message(e.message);}};
+  // AQK FINE COLLECTION + PRINT RECEIPT
+window.collectAQKFine = async id => {
+  try {
+    const loan = (state.loans || []).find(x => Number(x.id) === Number(id));
+
+    if (!loan) {
+      message('Loan record not found. Refresh the page.');
+      return;
+    }
+
+    if (loan.status === 'issued') {
+      message('Pehle book return karein.');
+      return;
+    }
+
+    const totalFine = Number(loan.fine_amount || 0);
+
+    if (totalFine <= 0) {
+      message('Is loan par koi fine payable nahi hai.');
+      return;
+    }
+
+    const payments = await api('fine-payments');
+    const paid = (payments.data || [])
+      .filter(p => Number(p.loan_id) === Number(id))
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const outstanding = Math.max(0, totalFine - paid);
+
+    if (outstanding <= 0) {
+      message('Fine already fully paid.');
+      return;
+    }
+
+    const entered = prompt(
+      `Total Fine: Rs. ${totalFine.toFixed(2)}\nAlready Paid: Rs. ${paid.toFixed(2)}\nRemaining: Rs. ${outstanding.toFixed(2)}\n\nPayment amount enter karein:`,
+      outstanding.toFixed(2)
+    );
+
+    if (entered === null) return;
+
+    const amount = Number(entered);
+
+    if (!Number.isFinite(amount) || amount <= 0 || amount > outstanding) {
+      message('Valid amount enter karein. Maximum: Rs. ' + outstanding.toFixed(2));
+      return;
+    }
+
+    const result = await api('fine-payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        loan_id: Number(id),
+        amount,
+        payment_date: new Date().toISOString().slice(0, 10)
+      })
+    });
+
+    const receiptResult = await api(`fine-payments/${result.id}`);
+    const p = receiptResult.data;
+
+    const receipt = window.open('', '_blank');
+
+    if (!receipt) {
+      message('Payment save ho gayi, lekin receipt window browser ne block kar di.');
+      return;
+    }
+
+    receipt.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Fine Payment Receipt</title>
+        <style>
+          body{font-family:Arial,sans-serif;padding:30px;color:#222}
+          .receipt{max-width:650px;margin:auto;border:1px solid #333;padding:25px}
+          h2{text-align:center;margin-bottom:5px}
+          h3{text-align:center;margin-top:5px}
+          table{width:100%;border-collapse:collapse;margin-top:25px}
+          td{padding:10px;border-bottom:1px solid #ddd}
+          td:first-child{font-weight:bold;width:40%}
+          .amount{font-size:22px;font-weight:bold;text-align:center;margin:25px}
+          .footer{text-align:center;margin-top:35px}
+          @media print{button{display:none}}
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <h2>Dr A Q Khan School & College</h2>
+          <h3>Fine Payment Receipt</h3>
+          <table>
+            <tr><td>Receipt No.</td><td>${safe(p.id)}</td></tr>
+            <tr><td>Library</td><td>${safe(p.library_name)}</td></tr>
+            <tr><td>Student Name</td><td>${safe(p.full_name)}</td></tr>
+            <tr><td>Member No.</td><td>${safe(p.member_no)}</td></tr>
+            <tr><td>Book Title</td><td>${safe(p.title)}</td></tr>
+            <tr><td>Loan ID</td><td>${safe(p.loan_id)}</td></tr>
+            <tr><td>Total Fine</td><td>Rs. ${Number(p.fine_amount || 0).toFixed(2)}</td></tr>
+            <tr><td>Payment Date</td><td>${safe(p.payment_date)}</td></tr>
+            <tr><td>Received By</td><td>${safe(p.received_by_name || '')}</td></tr>
+          </table>
+          <div class="amount">Received: Rs. ${Number(p.amount || 0).toFixed(2)}</div>
+          <p style="text-align:center">Remaining Fine: Rs. ${Number(result.outstanding || 0).toFixed(2)}</p>
+          <div class="footer">_________________________<br>Authorized Signature</div>
+          <div style="text-align:center;margin-top:20px">
+            <button onclick="window.print()">Print Receipt</button>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+
+    receipt.document.close();
+    message('Fine payment save ho gayi. Receipt open ho gayi hai.');
+    await refresh();
+
+  } catch (e) {
+    message(e.message);
+  }
+};
   // AQK ISSUE EDIT
 window.editAQKLoan = async id => {
   const loan = state.loans.find(x => Number(x.id) === Number(id));
