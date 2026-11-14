@@ -1240,38 +1240,62 @@ const renderLoanRows = (records) => {
   `;
 };
 
+
 const applyLoanFilters = () => {
-  const member = $('loanFilterMember').value.trim().toLowerCase();
-  const book = $('loanFilterBook').value.trim().toLowerCase();
-  const status = $('loanFilterStatus').value;
+  const member = ($('loanFilterMember')?.value || '')
+    .trim().toLowerCase();
+
+  const book = ($('loanFilterBook')?.value || '')
+    .trim().toLowerCase();
+
+  const selectedStatus = (
+    $('loanFilterStatus')?.value || ''
+  ).trim().toLowerCase();
+
   const today = new Date().toISOString().slice(0, 10);
 
-  const filtered = state.loans.filter(l => {
+  const filtered = (state.loans || []).filter(l => {
     const memberData =
       `${l.full_name || ''} ${l.member_no || ''}`.toLowerCase();
 
     const bookData =
       `${l.title || ''} ${l.copy_code || ''}`.toLowerCase();
 
+    const status = String(l.status || '').trim().toLowerCase();
     const due = String(l.due_date || '').slice(0, 10);
 
     if (member && !memberData.includes(member)) return false;
     if (book && !bookData.includes(book)) return false;
 
-    if (status === 'overdue') {
-      if (!(l.status === 'issued' && due < today)) return false;
-    } else if (
-      status &&
-      String(l.status).toLowerCase() !== status
+    // All Records par status filter apply nahi hoga
+    if (
+      selectedStatus &&
+      selectedStatus !== 'all' &&
+      selectedStatus !== 'all records'
     ) {
-      return false;
+      if (selectedStatus === 'overdue') {
+        if (!(status === 'issued' && due && due < today)) {
+          return false;
+        }
+      } else if (status !== selectedStatus) {
+        return false;
+      }
     }
 
     return true;
   });
 
+  console.log('AQK LOAN FILTER:', {
+    totalRecords: state.loans.length,
+    filteredRecords: filtered.length,
+    selectedStatus,
+    member,
+    book
+  });
+
   renderLoanRows(filtered);
 };
+
 // MONTHLY FINE COLLECTION REPORT
 const fineMonthInput = $('fineReportMonth');
 
