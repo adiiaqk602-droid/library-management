@@ -1303,7 +1303,7 @@ if (fineMonthInput) {
   fineMonthInput.value = new Date().toISOString().slice(0, 7);
 }
 
-$('loadFineReport').onclick = async () => {
+$('printFineReport').onclick = async () => {
   const month = $('fineReportMonth').value;
 
   if (!month) {
