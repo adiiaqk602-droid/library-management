@@ -1312,29 +1312,55 @@ $('printFineReport').onclick = async () => {
   }
 
   try {
-    const report = await api(
-      `fine-payments/monthly?month=${encodeURIComponent(month)}`
+    const response = await api('fine-payments');
+    const payments = response.data || [];
+
+    const monthlyPayments = payments.filter(p =>
+      String(p.payment_date || '').slice(0, 7) === month
+    );
+
+    const daily = {};
+
+    monthlyPayments.forEach(p => {
+      const date = String(p.payment_date || '').slice(0, 10);
+
+      if (!daily[date]) {
+        daily[date] = {
+          count: 0,
+          amount: 0
+        };
+      }
+
+      daily[date].count++;
+      daily[date].amount += Number(p.amount || 0);
+    });
+
+    const total = monthlyPayments.reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0
     );
 
     $('fineReportSummary').innerHTML = `
       <div class="stat">
         <span>Total Fine Collected</span>
-        <strong>Rs. ${Number(report.total || 0).toFixed(2)}</strong>
+        <strong>${reportMoney(total)}</strong>
       </div>
     `;
 
     $('fineReportRows').innerHTML =
-      (report.daily || []).map(row => `
-        <tr>
-          <td>${safe(row.payment_date)}</td>
-          <td>${Number(row.payment_count || 0)}</td>
-          <td>Rs. ${Number(row.collected_amount || 0).toFixed(2)}</td>
-        </tr>
-      `).join('') ||
+      Object.entries(daily)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, data]) => `
+          <tr>
+            <td>${safe(date)}</td>
+            <td>${data.count}</td>
+            <td>${reportMoney(data.amount)}</td>
+          </tr>
+        `).join('') ||
       '<tr><td colspan="3">No fine payments found for this month.</td></tr>';
 
   } catch (e) {
-    message(e.message);
+    message('Fine report error: ' + e.message);
   }
 };
 // Filter buttons
