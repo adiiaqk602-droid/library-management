@@ -1363,6 +1363,119 @@ $('printFineReport').onclick = async () => {
     message('Fine report error: ' + e.message);
   }
 };
+ // DAILY ISSUE REPORT
+const dailyIssueDate = $('dailyIssueDate');
+let dailyIssueFiltered = [];
+
+if (dailyIssueDate) {
+  const now = new Date();
+  dailyIssueDate.value =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+const applyDailyIssueReport = () => {
+  const selectedDate = $('dailyIssueDate').value;
+
+  if (!selectedDate) {
+    message('Please select an issue date.');
+    return;
+  }
+
+  dailyIssueFiltered = (state.loans || []).filter(l =>
+    String(l.issue_date || '').slice(0, 10) === selectedDate
+  );
+
+  $('dailyIssueSummary').innerHTML = `
+    <div class="stat">
+      <span>Total Books Issued</span>
+      <strong>${dailyIssueFiltered.length}</strong>
+    </div>
+  `;
+
+  $('dailyIssueRows').innerHTML =
+    dailyIssueFiltered.map(l => `
+      <tr>
+        <td>${safe(l.full_name || '')}</td>
+        <td>${safe(l.member_no || '')}</td>
+        <td>${safe(l.title || '')}</td>
+        <td>${safe(l.copy_code || '')}</td>
+        <td>${safe(l.library_name || '')}</td>
+        <td>${safe(l.issue_date || '')}</td>
+        <td>${safe(l.due_date || '')}</td>
+      </tr>
+    `).join('') ||
+    '<tr><td colspan="7">No books issued on this date.</td></tr>';
+};
+
+$('applyDailyIssueReport').onclick = applyDailyIssueReport;
+
+$('printDailyIssueReport').onclick = () => {
+  const selectedDate = $('dailyIssueDate').value;
+
+  if (!selectedDate) {
+    message('Please select an issue date.');
+    return;
+  }
+
+  const rows = dailyIssueFiltered.map(l => `
+    <tr>
+      <td>${safe(l.full_name || '')}</td>
+      <td>${safe(l.member_no || '')}</td>
+      <td>${safe(l.title || '')}</td>
+      <td>${safe(l.copy_code || '')}</td>
+      <td>${safe(l.library_name || '')}</td>
+      <td>${safe(l.issue_date || '')}</td>
+      <td>${safe(l.due_date || '')}</td>
+    </tr>
+  `).join('');
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    message('Please allow pop-ups to print this report.');
+    return;
+  }
+
+  printWindow.document.write(`
+    <html>
+    <head>
+      <title>Daily Issue Report</title>
+      <style>
+        body { font-family: Arial; padding: 20px; }
+        h2, p { text-align: center; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #333; padding: 7px; text-align: left; }
+        th { background: #eee; }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School & College</h2>
+      <h3 style="text-align:center">BS Library - Daily Issue Report</h3>
+      <p>Issue Date: ${safe(selectedDate)}</p>
+      <p>Total Books Issued: ${dailyIssueFiltered.length}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Membership ID</th>
+            <th>Book Title</th>
+            <th>Copy Number</th>
+            <th>Library</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="7">No records found.</td></tr>'}</tbody>
+      </table>
+      <script>
+        window.onload = () => window.print();
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+};   
 // Filter buttons
 $('applyLoanFilters').onclick = applyLoanFilters;
 
