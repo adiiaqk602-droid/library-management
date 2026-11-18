@@ -257,6 +257,167 @@ async function handle(request,env){
   if(path==='logout'&&method==='POST'){const token=cookieValue(request,COOKIE);if(token)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(token)).run();return json({ok:true},200,{'set-cookie':cookie('',0)});}
   const user=await getUser(request,env);if(!user)return fail('Please sign in.',401);
   
+  // AQK FINE PAYMENTS API
+  if (path === 'fine-payments' && method === 'GET') {
+    const rows = await env.DB.prepare(`
+      SELECT p.*, m.full_name, m.member_no,
+             l.fine_amount, b.title,
+             lib.name AS library_name,
+             u.full_name AS received_by_name
+      FROM fine_payments p
+      JOIN loans l ON l.id = p.loan_id
+      JOIN members m ON m.id = p.member_id
+      JOIN book_copies bc ON bc.id = l.copy_id
+      JOIN books b ON b.id = bc.book_id
+      JOIN libraries lib ON lib.id = p.library_id
+      LEFT JOIN users u ON u.id = p.received_by
+      WHERE 1=1
+      ${isAdmin(user) ? '' : 'AND p.library_id = ?'}
+      ORDER BY p.payment_date DESC, p.id DESC
+      LIMIT 1000
+    `).bind(...(isAdmin(user) ? [] : [user.library_id])).all();
+
+    return json({ data: rows.results || [] });
+  }
+
+  // Save a fine payment
+  if (path === 'fine-payments' && method === 'POST') {
+    const d = await bodyJson(request);
+
+    if (!d || !Number(d.loan_id)) {
+      return fail('Loan ID is required.');
+    }
+
+    const amount = Number(d.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return fail('Enter a valid payment amount.');
+    }
+
+    const paymentDate = String(
+      d.payment_date || new Date().toISOString().slice(0, 10)
+    );
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
+      return fail('Invalid payment date.');
+    }
+
+    const loan = await env.DB.prepare(`
+      SELECT l.id, l.library_id, l.member_id,
+             l.status, l.fine_amount, l.fine_paid
+      FROM loans l
+      WHERE l.id = ?
+    `).bind(Number(d.loan_id)).first();
+
+    if (!loan) return fail('Loan record not found.', 404);
+
+    if (!assertLibrary(user, loan.library_id)) {
+      return fail('You cannot collect fine for another library.', 403);
+    }
+
+    if (loan.status === 'issued') {
+      return fail('Return the book before collecting fine.');
+    }
+
+    const paymentTotal = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount), 0) AS paid
+      FROM fine_payments
+      WHERE loan_id = ?
+    `).bind(loan.id).first();
+
+    const alreadyPaid = Number(paymentTotal?.paid || 0);
+    const outstanding = Math.max(
+      0,
+      Number(loan.fine_amount || 0) - alreadyPaid
+    );
+
+    if (outstanding <= 0) {
+      return fail('This fine has already been fully paid.');
+    }
+
+    if (amount > outstanding) {
+      return fail(
+        'Payment exceeds remaining fine. Remaining: Rs. ' +
+        outstanding.toFixed(2)
+      );
+    }
+
+    const result = await env.DB.prepare(`
+      INSERT INTO fine_payments
+        (loan_id, library_id, member_id, amount, payment_date, received_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      loan.id,
+      loan.library_id,
+      loan.member_id,
+      amount,
+      paymentDate,
+      user.id
+    ).run();
+
+    const newPaid = alreadyPaid + amount;
+    const newOutstanding = Math.max(
+      0,
+      Number(loan.fine_amount || 0) - newPaid
+    );
+
+    await env.DB.prepare(`
+      UPDATE loans SET fine_paid = ? WHERE id = ?
+    `).bind(newPaid, loan.id).run();
+
+    await audit(
+      env, user, 'create', 'fine_payments',
+      result.meta.last_row_id,
+      `loan=${loan.id}; amount=${amount}`
+    );
+
+    return json({
+      ok: true,
+      id: result.meta.last_row_id,
+      outstanding: newOutstanding
+    }, 201);
+  }
+
+  // Fine payment receipt
+  const fineReceiptMatch = path.match(/^fine-payments\/(\d+)$/);
+
+  if (fineReceiptMatch && method === 'GET') {
+    const paymentId = Number(fineReceiptMatch[1]);
+
+    const p = await env.DB.prepare(`
+      SELECT p.*, m.full_name, m.member_no,
+             l.fine_amount, b.title,
+             lib.name AS library_name,
+             u.full_name AS received_by_name
+      FROM fine_payments p
+      JOIN loans l ON l.id = p.loan_id
+      JOIN members m ON m.id = p.member_id
+      JOIN book_copies bc ON bc.id = l.copy_id
+      JOIN books b ON b.id = bc.book_id
+      JOIN libraries lib ON lib.id = p.library_id
+      LEFT JOIN users u ON u.id = p.received_by
+      WHERE p.id = ?
+      ${isAdmin(user) ? '' : 'AND p.library_id = ?'}
+    `).bind(
+      ...(isAdmin(user) ? [paymentId] : [paymentId, user.library_id])
+    ).first();
+
+    if (!p) return fail('Payment receipt not found.', 404);
+
+    const paid = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM fine_payments
+      WHERE loan_id = ?
+    `).bind(p.loan_id).first();
+
+    return json({
+      data: p,
+      outstanding: Math.max(
+        0,
+        Number(p.fine_amount || 0) - Number(paid?.total || 0)
+      )
+    });
+  }
+
   // List E-Books visible to the signed-in user
   if (path === "ebooks" && method === "GET") {
     const rows = await env.DB.prepare(`
