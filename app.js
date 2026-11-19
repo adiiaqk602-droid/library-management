@@ -2292,6 +2292,180 @@ $('printLibraryWiseReport').onclick = () => {
   printWindow.document.close();
 };
 
+// STUDENT WISE REPORT
+let studentWiseFiltered = [];
+
+const getStudentWiseRecords = () => {
+  const now = new Date();
+  const today =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const students = {};
+
+  (state.loans || []).forEach(loan => {
+    const memberNo = String(loan.member_no || '').trim();
+    const studentName = String(loan.full_name || 'Unknown Student').trim();
+    const key = memberNo || studentName.toLowerCase();
+
+    if (!students[key]) {
+      students[key] = {
+        name: studentName,
+        member_no: memberNo,
+        total: 0,
+        issued: 0,
+        returned: 0,
+        overdue: 0,
+        fine: 0
+      };
+    }
+
+    const student = students[key];
+    const status = String(loan.status || '').toLowerCase();
+    const returnDate = String(loan.return_date || '').trim();
+    const dueDate = String(loan.due_date || '').slice(0, 10);
+
+    student.total++;
+    student.fine += Number(loan.fine_amount || 0);
+
+    if (
+      (status === 'issued' || status === 'overdue') &&
+      !returnDate
+    ) {
+      student.issued++;
+
+      if (status === 'overdue' || (dueDate && dueDate < today)) {
+        student.overdue++;
+      }
+    }
+
+    if (status === 'returned' || returnDate) {
+      student.returned++;
+    }
+  });
+
+  return Object.values(students).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+};
+
+const applyStudentWiseReport = () => {
+  const search = String(
+    $('studentReportSearch').value || ''
+  ).trim().toLowerCase();
+
+  studentWiseFiltered = getStudentWiseRecords().filter(student =>
+    student.name.toLowerCase().includes(search) ||
+    student.member_no.toLowerCase().includes(search)
+  );
+
+  const totals = studentWiseFiltered.reduce((sum, student) => ({
+    total: sum.total + student.total,
+    issued: sum.issued + student.issued,
+    returned: sum.returned + student.returned,
+    overdue: sum.overdue + student.overdue,
+    fine: sum.fine + student.fine
+  }), {
+    total: 0,
+    issued: 0,
+    returned: 0,
+    overdue: 0,
+    fine: 0
+  });
+
+  $('studentReportSummary').innerHTML = `
+    <div class="stat"><span>Total Issues</span><strong>${totals.total}</strong></div>
+    <div class="stat"><span>Currently Issued</span><strong>${totals.issued}</strong></div>
+    <div class="stat"><span>Returned</span><strong>${totals.returned}</strong></div>
+    <div class="stat"><span>Overdue</span><strong>${totals.overdue}</strong></div>
+    <div class="stat"><span>Total Fine</span><strong>${reportMoney(totals.fine)}</strong></div>
+  `;
+
+  $('studentReportRows').innerHTML = reportRows(
+    studentWiseFiltered,
+    student => `
+      <tr>
+        <td>${safe(student.name)}</td>
+        <td>${safe(student.member_no)}</td>
+        <td>${student.total}</td>
+        <td>${student.issued}</td>
+        <td>${student.returned}</td>
+        <td>${student.overdue}</td>
+        <td>${reportMoney(student.fine)}</td>
+      </tr>
+    `,
+    7
+  );
+};
+
+$('applyStudentReport').onclick = applyStudentWiseReport;
+
+$('studentReportSearch').addEventListener('input', applyStudentWiseReport);
+
+$('printStudentReport').onclick = () => {
+  applyStudentWiseReport();
+
+  const rows = studentWiseFiltered.map(student => `
+    <tr>
+      <td>${safe(student.name)}</td>
+      <td>${safe(student.member_no)}</td>
+      <td>${student.total}</td>
+      <td>${student.issued}</td>
+      <td>${student.returned}</td>
+      <td>${student.overdue}</td>
+      <td>${reportMoney(student.fine)}</td>
+    </tr>
+  `).join('');
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    message('Please allow pop-ups to print this report.');
+    return;
+  }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Student Wise Report</title>
+      <style>
+        body { font-family: Arial; padding: 20px; }
+        h2, h3, p { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+        th { background: #eee; }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School &amp; College</h2>
+      <h3>Student Wise Report</h3>
+      <p>Generated: ${new Date().toLocaleDateString()}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Membership ID</th>
+            <th>Total Issues</th>
+            <th>Currently Issued</th>
+            <th>Returned</th>
+            <th>Overdue</th>
+            <th>Total Fine (Rs.)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="7">No records found.</td></tr>'}
+        </tbody>
+      </table>
+      <script>
+        window.onload = () => window.print();
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+};
+
  // AQK Dashboard: Category-wise Books Overview
 const categoryBox = $('dashboardCategoryChart');
 if (categoryBox) {
