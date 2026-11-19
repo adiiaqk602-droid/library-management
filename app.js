@@ -2118,7 +2118,181 @@ $('monthlyRows').innerHTML = reportRows(
   r.monthlyIssuesReturns,
   x => `<tr><td>${safe(x.month)}</td><td>${safe(x.issued)}</td><td>${safe(x.returned)}</td></tr>`,
   3
-);    // AQK Dashboard: Category-wise Books Overview
+);
+  
+// LIBRARY WISE REPORT
+let libraryWiseFiltered = [];
+
+const getLibraryWiseRecords = () => {
+  const now = new Date();
+  const today =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  return (state.libraries || []).map(library => {
+    const belongsToLibrary = record => {
+      if (Number(record.library_id) === Number(library.id)) {
+        return true;
+      }
+
+      return !record.library_id &&
+        String(record.library_name || '').trim().toLowerCase() ===
+        String(library.name || '').trim().toLowerCase();
+    };
+
+    const books = (state.books || []).filter(b =>
+      Number(b.library_id) === Number(library.id)
+    );
+
+    const copies = (state.copies || []).filter(belongsToLibrary);
+
+    const loans = (state.loans || []).filter(belongsToLibrary);
+
+    const activeLoans = loans.filter(l => {
+      const status = String(l.status || '').toLowerCase();
+      return (
+        (status === 'issued' || status === 'overdue') &&
+        !String(l.return_date || '').trim()
+      );
+    });
+
+    const overdueLoans = activeLoans.filter(l => {
+      const dueDate = String(l.due_date || '').slice(0, 10);
+      return dueDate && dueDate < today;
+    });
+
+    return {
+      library_name: library.name,
+      total_titles: books.length,
+      total_copies: copies.length,
+      available: copies.filter(c =>
+        String(c.status || '').toLowerCase() === 'available'
+      ).length,
+      issued: activeLoans.length,
+      overdue: overdueLoans.length
+    };
+  });
+};
+
+const applyLibraryWiseReport = () => {
+  libraryWiseFiltered = getLibraryWiseRecords();
+
+  const totals = libraryWiseFiltered.reduce((sum, l) => ({
+    titles: sum.titles + l.total_titles,
+    copies: sum.copies + l.total_copies,
+    available: sum.available + l.available,
+    issued: sum.issued + l.issued,
+    overdue: sum.overdue + l.overdue
+  }), {
+    titles: 0,
+    copies: 0,
+    available: 0,
+    issued: 0,
+    overdue: 0
+  });
+
+  $('libraryWiseSummary').innerHTML = `
+    <div class="stat">
+      <span>Total Book Titles</span>
+      <strong>${totals.titles}</strong>
+    </div>
+    <div class="stat">
+      <span>Total Copies</span>
+      <strong>${totals.copies}</strong>
+    </div>
+    <div class="stat">
+      <span>Available Copies</span>
+      <strong>${totals.available}</strong>
+    </div>
+    <div class="stat">
+      <span>Issued Books</span>
+      <strong>${totals.issued}</strong>
+    </div>
+    <div class="stat">
+      <span>Overdue Books</span>
+      <strong>${totals.overdue}</strong>
+    </div>
+  `;
+
+  $('libraryWiseRows').innerHTML =
+    libraryWiseFiltered.map(l => `
+      <tr>
+        <td>${safe(l.library_name)}</td>
+        <td>${l.total_titles}</td>
+        <td>${l.total_copies}</td>
+        <td>${l.available}</td>
+        <td>${l.issued}</td>
+        <td>${l.overdue}</td>
+      </tr>
+    `).join('') ||
+    '<tr><td colspan="6">No library records found.</td></tr>';
+};
+
+$('applyLibraryWiseReport').onclick = applyLibraryWiseReport;
+
+$('printLibraryWiseReport').onclick = () => {
+  applyLibraryWiseReport();
+
+  const rows = libraryWiseFiltered.map(l => `
+    <tr>
+      <td>${safe(l.library_name)}</td>
+      <td>${l.total_titles}</td>
+      <td>${l.total_copies}</td>
+      <td>${l.available}</td>
+      <td>${l.issued}</td>
+      <td>${l.overdue}</td>
+    </tr>
+  `).join('');
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    message('Please allow pop-ups to print this report.');
+    return;
+  }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Library Wise Report</title>
+      <style>
+        body { font-family: Arial; padding: 20px; }
+        h2, h3, p { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+        th { background: #eee; }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School &amp; College</h2>
+      <h3>Library Wise Report</h3>
+      <p>Generated: ${new Date().toLocaleDateString()}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Library Name</th>
+            <th>Total Book Titles</th>
+            <th>Total Copies</th>
+            <th>Available Copies</th>
+            <th>Issued Books</th>
+            <th>Overdue Books</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="6">No records found.</td></tr>'}
+        </tbody>
+      </table>
+      <script>
+        window.onload = () => window.print();
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+};
+
+ // AQK Dashboard: Category-wise Books Overview
 const categoryBox = $('dashboardCategoryChart');
 if (categoryBox) {
   categoryBox.innerHTML = state.categories.map(c => {
