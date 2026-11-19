@@ -1928,7 +1928,40 @@ $('stats').innerHTML=[
 ].map(x=>`<div class="stat"><span class="muted">${safe(x[0])}</span><strong>${safe(x[1])}</strong></div>`).join('');
 
 $('reportStats').innerHTML=$('stats').innerHTML;
+// CENTRAL REPORT FILTER DROPDOWNS
+const reportLibrary = $('centralReportLibrary');
+const reportWing = $('centralReportWing');
+const reportCategory = $('centralReportCategory');
 
+if (reportLibrary) {
+  const selected = reportLibrary.value;
+  reportLibrary.innerHTML =
+    '<option value="">All Libraries</option>' +
+    (state.libraries || []).map(l =>
+      `<option value="${safe(l.id)}">${safe(l.name)}</option>`
+    ).join('');
+  reportLibrary.value = selected;
+}
+
+if (reportWing) {
+  const selected = reportWing.value;
+  reportWing.innerHTML =
+    '<option value="">All Wings</option>' +
+    (state.wings || []).map(w =>
+      `<option value="${safe(w.id)}">${safe(w.name)}</option>`
+    ).join('');
+  reportWing.value = selected;
+}
+
+if (reportCategory) {
+  const selected = reportCategory.value;
+  reportCategory.innerHTML =
+    '<option value="">All Categories</option>' +
+    (state.categories || []).map(c =>
+      `<option value="${safe(c.id)}">${safe(c.name)}</option>`
+    ).join('');
+  reportCategory.value = selected;
+}
 // AQK Library-wise Books Chart
 const libraryChartData = state.libraries.map(l => ({
   name: l.name,
