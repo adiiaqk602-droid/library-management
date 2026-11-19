@@ -819,7 +819,52 @@
   </p>
 
 </section>
-  <section id="reports" class="tab panel hidden"><h2>Reports &amp; Fine Settings</h2><div id="reportStats" class="stats"></div><div class="tableWrap"><h3>Category-wise books</h3><table><thead><tr><th>Category</th><th>Total titles</th></tr></thead><tbody id="categoryReportRows"></tbody></table></div><div class="tableWrap"><h3>Library-wise books</h3><table><thead><tr><th>Library</th><th>Total titles</th></tr></thead><tbody id="libraryReportRows"></tbody></table></div><div class="tableWrap"><h3>Inventory by stock / status</h3><table><thead><tr><th>Stock type</th><th>Status</th><th>Total</th></tr></thead><tbody id="inventoryReportRows"></tbody></table></div><!-- 1. Category-wise Stock Value -->
+  <section id="reports" class="tab panel hidden"><h2>Reports &amp; Fine Settings</h2><div id="reportStats" class="stats"></div><!-- CENTRAL REPORT FILTER -->
+<div class="tableWrap">
+  <h3>Central Report Filter</h3>
+
+  <div class="formGrid">
+    <label>Library
+      <select id="centralReportLibrary">
+        <option value="">All Libraries</option>
+      </select>
+    </label>
+
+    <label>Wing
+      <select id="centralReportWing">
+        <option value="">All Wings</option>
+      </select>
+    </label>
+
+    <label>Category
+      <select id="centralReportCategory">
+        <option value="">All Categories</option>
+      </select>
+    </label>
+
+    <label>From Date
+      <input type="date" id="centralReportFrom">
+    </label>
+
+    <label>To Date
+      <input type="date" id="centralReportTo">
+    </label>
+  </div>
+
+  <div class="formGrid">
+    <button type="button" id="applyCentralReportFilter">
+      Apply Filter
+    </button>
+
+    <button type="button" class="secondary" id="resetCentralReportFilter">
+      Reset Filter
+    </button>
+
+    <button type="button" class="secondary" id="printAllReports">
+      Print All Reports
+    </button>
+  </div>
+</div><div class="tableWrap"><h3>Category-wise books</h3><table><thead><tr><th>Category</th><th>Total titles</th></tr></thead><tbody id="categoryReportRows"></tbody></table></div><div class="tableWrap"><h3>Library-wise books</h3><table><thead><tr><th>Library</th><th>Total titles</th></tr></thead><tbody id="libraryReportRows"></tbody></table></div><div class="tableWrap"><h3>Inventory by stock / status</h3><table><thead><tr><th>Stock type</th><th>Status</th><th>Total</th></tr></thead><tbody id="inventoryReportRows"></tbody></table></div><!-- 1. Category-wise Stock Value -->
 
 <!-- AQK DATE-WISE BOOK ENTRY REPORT -->
 <div class="tableWrap">
