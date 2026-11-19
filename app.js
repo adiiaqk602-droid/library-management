@@ -1381,7 +1381,7 @@ const applyDailyIssueReport = () => {
     return;
   }
 
-  dailyIssueFiltered = (state.loans || []).filter(l =>
+  dailyIssueFiltered = centralReportData.loans.filter(l =>
     String(l.issue_date || '').slice(0, 10) === selectedDate
   );
 
@@ -2063,92 +2063,548 @@ const reportMoney = v =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+// CENTRAL REPORT FILTER - SELECTED DATA
+const getCentralReportData = () => {
+  const libraryId = $('centralReportLibrary')?.value || '';
+  const wingId = $('centralReportWing')?.value || '';
+  const categoryId = $('centralReportCategory')?.value || '';
+const fromDate = $('centralReportFrom')?.value || '';
+const toDate = $('centralReportTo')?.value || '';
+  const filteredBooks = (state.books || []).filter(b => {
+  const entryDate = String(
+    b.entry_date || b.purchase_date || ''
+  ).slice(0, 10);
 
+  return (
+    (!libraryId || Number(b.library_id) === Number(libraryId)) &&
+    (!wingId || Number(b.wing_id) === Number(wingId)) &&
+    (!categoryId || Number(b.category_id) === Number(categoryId)) &&
+    (!fromDate || (entryDate && entryDate >= fromDate)) &&
+    (!toDate || (entryDate && entryDate <= toDate))
+  );
+});
+
+  const bookIds = new Set(filteredBooks.map(b => Number(b.id)));
+
+  const filteredCopies = (state.copies || []).filter(c =>
+    bookIds.has(Number(c.book_id))
+  );
+
+  const filteredLoans = (state.loans || []).filter(l => {
+    const copy = (state.copies || []).find(
+      c => Number(c.id) === Number(l.copy_id)
+    );
+
+    return copy && bookIds.has(Number(copy.book_id));
+  });
+
+  return {
+    books: filteredBooks,
+    copies: filteredCopies,
+    loans: filteredLoans
+  };
+};
+
+const centralReportData = getCentralReportData();
+// CENTRAL REPORT FILTER BUTTONS
+const applyCentralFilter = $('applyCentralReportFilter');
+const resetCentralFilter = $('resetCentralReportFilter');
+
+if (applyCentralFilter) {
+  applyCentralFilter.onclick = () => render();
+}
+
+if (resetCentralFilter) {
+  resetCentralFilter.onclick = () => {
+    $('centralReportLibrary').value = '';
+    $('centralReportWing').value = '';
+    $('centralReportCategory').value = '';
+    $('centralReportFrom').value = '';
+    $('centralReportTo').value = '';
+
+    render();
+  };
+}
 // Existing reports
+// Category-wise Books - Central Filter
+const centralCategoryReport = {};
+
+centralReportData.books.forEach(book => {
+  const category = (state.categories || []).find(
+    c => Number(c.id) === Number(book.category_id)
+  );
+
+  const categoryName = category?.name || 'Uncategorized';
+
+  centralCategoryReport[categoryName] =
+    (centralCategoryReport[categoryName] || 0) + 1;
+});
+
 $('categoryReportRows').innerHTML = reportRows(
-  r.byCategory,
+  Object.entries(centralCategoryReport).map(([label, total]) => ({
+    label,
+    total
+  })),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total)}</td></tr>`,
   2
 );
+
+// Library-wise Books - Central Filter
+const centralLibraryReport = {};
+
+centralReportData.books.forEach(book => {
+  const library = (state.libraries || []).find(
+    l => Number(l.id) === Number(book.library_id)
+  );
+
+  const libraryName = library?.name || 'Unknown Library';
+
+  centralLibraryReport[libraryName] =
+    (centralLibraryReport[libraryName] || 0) + 1;
+});
 
 $('libraryReportRows').innerHTML = reportRows(
-  r.byLibrary,
+  Object.entries(centralLibraryReport).map(([label, total]) => ({
+    label,
+    total
+  })),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total)}</td></tr>`,
   2
 );
+// Inventory Status - Central Filter
+const centralInventoryReport = {};
+
+centralReportData.copies.forEach(copy => {
+  const status = String(copy.status || 'Unknown');
+
+  centralInventoryReport[status] =
+    (centralInventoryReport[status] || 0) + 1;
+});
 
 $('inventoryReportRows').innerHTML = reportRows(
-  r.inventory,
+  Object.entries(centralInventoryReport).map(([status, total]) => ({
+    label: 'Physical Copies',
+    status,
+    total
+  })),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.status)}</td><td>${safe(x.total)}</td></tr>`,
   3
 );
 
 // 1. Category-wise Stock Value
+// Category-wise Stock Value - Central Filter
+const centralCategoryValue = {};
+
+centralReportData.books.forEach(book => {
+  const category = (state.categories || []).find(
+    c => Number(c.id) === Number(book.category_id)
+  );
+
+  const categoryName = category?.name || 'Uncategorized';
+
+  if (!centralCategoryValue[categoryName]) {
+    centralCategoryValue[categoryName] = {
+      titles: 0,
+      copies: 0,
+      stock_value: 0
+    };
+  }
+
+  const copies = centralReportData.copies.filter(
+    c => Number(c.book_id) === Number(book.id)
+  );
+
+  centralCategoryValue[categoryName].titles++;
+  centralCategoryValue[categoryName].copies += copies.length;
+  centralCategoryValue[categoryName].stock_value +=
+    Number(book.price || 0) * copies.length;
+});
+
 $('categoryValueRows').innerHTML = reportRows(
-  r.byCategoryValue,
+  Object.entries(centralCategoryValue).map(([label, data]) => ({
+    label,
+    ...data
+  })),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
   4
 );
 
 // 2. Category-wise Location
+// Category-wise Location - Central Filter
+const centralCategoryLocation = {};
+
+centralReportData.books.forEach(book => {
+  const category = (state.categories || []).find(
+    c => Number(c.id) === Number(book.category_id)
+  );
+
+  const library = (state.libraries || []).find(
+    l => Number(l.id) === Number(book.library_id)
+  );
+
+  const wing = (state.wings || []).find(
+    w => Number(w.id) === Number(book.wing_id)
+  );
+
+  const rack = (state.racks || []).find(
+    r => Number(r.id) === Number(book.rack_id)
+  );
+
+  const copies = centralReportData.copies.filter(
+    c => Number(c.book_id) === Number(book.id)
+  );
+
+  const locations = copies.length ? copies : [null];
+
+  locations.forEach(copy => {
+    const key = [
+      book.category_id || 0,
+      book.library_id || 0,
+      book.wing_id || 0,
+      book.rack_id || 0
+    ].join('-');
+
+    if (!centralCategoryLocation[key]) {
+      centralCategoryLocation[key] = {
+        category: category?.name || 'Uncategorized',
+        library: library?.name || 'Unknown Library',
+        wing: wing?.name || 'No Wing',
+        rack: rack?.name || 'No Rack',
+        titles: 0,
+        copies: 0,
+        bookIds: new Set()
+      };
+    }
+
+    const row = centralCategoryLocation[key];
+
+    if (!row.bookIds.has(Number(book.id))) {
+      row.bookIds.add(Number(book.id));
+      row.titles++;
+    }
+
+    if (copy) row.copies++;
+  });
+});
+
 $('categoryLocationRows').innerHTML = reportRows(
-  r.byCategoryLocation,
+  Object.values(centralCategoryLocation).map(row => ({
+    ...row,
+    bookIds: undefined
+  })),
   x => `<tr><td>${safe(x.category)}</td><td>${safe(x.library)}</td><td>${safe(x.wing)}</td><td>${safe(x.rack)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td></tr>`,
   6
 );
 
 // 3. Category-wise Issue Report
+// Category-wise Issue Report - Central Filter
+const centralCategoryIssues = {};
+const centralToday = new Date().toISOString().slice(0, 10);
+
+centralReportData.loans.forEach(loan => {
+  const copy = (state.copies || []).find(
+    c => Number(c.id) === Number(loan.copy_id)
+  );
+
+  const book = (state.books || []).find(
+    b => Number(b.id) === Number(copy?.book_id)
+  );
+
+  if (!book) return;
+
+  const category = (state.categories || []).find(
+    c => Number(c.id) === Number(book.category_id)
+  );
+
+  const categoryName = category?.name || 'Uncategorized';
+
+  if (!centralCategoryIssues[categoryName]) {
+    centralCategoryIssues[categoryName] = {
+      label: categoryName,
+      total_issues: 0,
+      currently_issued: 0,
+      returned: 0,
+      overdue: 0
+    };
+  }
+
+  const row = centralCategoryIssues[categoryName];
+  const status = String(loan.status || '').toLowerCase();
+  const returnDate = String(loan.return_date || '').trim();
+  const dueDate = String(loan.due_date || '').slice(0, 10);
+
+  row.total_issues++;
+
+  if (
+    (status === 'issued' || status === 'overdue') &&
+    !returnDate
+  ) {
+    row.currently_issued++;
+
+    if (status === 'overdue' || (dueDate && dueDate < centralToday)) {
+      row.overdue++;
+    }
+  }
+
+  if (status === 'returned' || returnDate) {
+    row.returned++;
+  }
+});
+
 $('categoryIssueRows').innerHTML = reportRows(
-  r.byCategoryIssues,
+  Object.values(centralCategoryIssues),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total_issues)}</td><td>${safe(x.currently_issued)}</td><td>${safe(x.returned)}</td><td>${safe(x.overdue)}</td></tr>`,
   5
 );
 
 // 4. Most Issued Categories
+// Most Issued Categories - Central Filter
+const centralMostIssued = Object.values(centralCategoryIssues)
+  .sort((a, b) => b.total_issues - a.total_issues);
+
 $('mostIssuedRows').innerHTML = reportRows(
-  r.mostIssuedCategories,
+  centralMostIssued,
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total_issues)}</td></tr>`,
   2
 );
 
 // 5. Least Issued Categories
+// Least Issued Categories - Central Filter
+const centralLeastIssued = [];
+
+const categoryNames = new Map();
+
+centralReportData.books.forEach(book => {
+  const category = (state.categories || []).find(
+    c => Number(c.id) === Number(book.category_id)
+  );
+
+  const categoryName = category?.name || 'Uncategorized';
+  categoryNames.set(categoryName, true);
+});
+
+categoryNames.forEach((value, categoryName) => {
+  const issueData = centralCategoryIssues[categoryName];
+
+  centralLeastIssued.push({
+    label: categoryName,
+    total_issues: issueData ? issueData.total_issues : 0
+  });
+});
+
+centralLeastIssued.sort(
+  (a, b) => a.total_issues - b.total_issues
+);
+
 $('leastIssuedRows').innerHTML = reportRows(
-  r.leastIssuedCategories,
+  centralLeastIssued,
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.total_issues)}</td></tr>`,
   2
 );
 
 // 6. Academic Year-wise Books
+// Academic Year-wise Books - Central Filter
+const centralAcademicYear = {};
+
+centralReportData.books.forEach(book => {
+  const year = String(book.academic_year || 'Not Specified');
+
+  if (!centralAcademicYear[year]) {
+    centralAcademicYear[year] = {
+      label: year,
+      titles: 0,
+      copies: 0
+    };
+  }
+
+  centralAcademicYear[year].titles++;
+
+  centralAcademicYear[year].copies +=
+    centralReportData.copies.filter(
+      c => Number(c.book_id) === Number(book.id)
+    ).length;
+});
+
 $('academicYearRows').innerHTML = reportRows(
-  r.byAcademicYear,
+  Object.values(centralAcademicYear).sort((a, b) =>
+    a.label.localeCompare(b.label)
+  ),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td></tr>`,
   3
 );
 
 // 7. New / Old / Donate Books
+// New / Old / Donate Books - Central Filter
+const centralStockType = {};
+
+centralReportData.copies.forEach(copy => {
+  const stockType = String(copy.stock_type || 'General');
+  const status = String(copy.status || 'Unknown');
+
+  const key = stockType + '|' + status;
+
+  if (!centralStockType[key]) {
+    centralStockType[key] = {
+      label: stockType,
+      status,
+      total: 0,
+      stock_value: 0
+    };
+  }
+
+  centralStockType[key].total++;
+
+  const book = centralReportData.books.find(
+    b => Number(b.id) === Number(copy.book_id)
+  );
+
+  centralStockType[key].stock_value += Number(book?.price || 0);
+});
+
 $('stockTypeRows').innerHTML = reportRows(
-  r.byStockType,
+  Object.values(centralStockType),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.status)}</td><td>${safe(x.total)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
   4
 );
 
 // 8. Library-wise Stock Value
+// Library-wise Stock Value - Central Filter
+const centralLibraryValue = {};
+
+centralReportData.books.forEach(book => {
+  const library = (state.libraries || []).find(
+    l => Number(l.id) === Number(book.library_id)
+  );
+
+  const libraryName = library?.name || 'Unknown Library';
+
+  if (!centralLibraryValue[libraryName]) {
+    centralLibraryValue[libraryName] = {
+      label: libraryName,
+      titles: 0,
+      copies: 0,
+      stock_value: 0
+    };
+  }
+
+  const copies = centralReportData.copies.filter(
+    c => Number(c.book_id) === Number(book.id)
+  );
+
+  centralLibraryValue[libraryName].titles++;
+  centralLibraryValue[libraryName].copies += copies.length;
+  centralLibraryValue[libraryName].stock_value +=
+    Number(book.price || 0) * copies.length;
+});
+
 $('libraryValueRows').innerHTML = reportRows(
-  r.byLibraryValue,
+  Object.values(centralLibraryValue),
   x => `<tr><td>${safe(x.label)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
   4
 );
 
 // 9. Rack-wise Book Report
+// Rack-wise Book Report - Central Filter
+const centralRackReport = {};
+
+centralReportData.books.forEach(book => {
+  const library = (state.libraries || []).find(
+    l => Number(l.id) === Number(book.library_id)
+  );
+
+  const wing = (state.wings || []).find(
+    w => Number(w.id) === Number(book.wing_id)
+  );
+
+  const rack = (state.racks || []).find(
+    r => Number(r.id) === Number(book.rack_id)
+  );
+
+  const key = [
+    book.library_id || 0,
+    book.wing_id || 0,
+    book.rack_id || 0
+  ].join('-');
+
+  if (!centralRackReport[key]) {
+    centralRackReport[key] = {
+      library: library?.name || 'Unknown Library',
+      wing: wing?.name || 'No Wing',
+      rack: rack?.name || 'No Rack',
+      titles: 0,
+      copies: 0,
+      available: 0,
+      issued: 0,
+      stock_value: 0
+    };
+  }
+
+  const row = centralRackReport[key];
+
+  row.titles++;
+
+  const copies = centralReportData.copies.filter(
+    c => Number(c.book_id) === Number(book.id)
+  );
+
+  row.copies += copies.length;
+  row.stock_value += Number(book.price || 0) * copies.length;
+
+  copies.forEach(copy => {
+    const status = String(copy.status || '').toLowerCase();
+
+    if (status === 'available') row.available++;
+    if (status === 'issued') row.issued++;
+  });
+});
+
 $('rackReportRows').innerHTML = reportRows(
-  r.byRack,
+  Object.values(centralRackReport),
   x => `<tr><td>${safe(x.library)}</td><td>${safe(x.wing)}</td><td>${safe(x.rack)}</td><td>${safe(x.titles)}</td><td>${safe(x.copies)}</td><td>${safe(x.available)}</td><td>${safe(x.issued)}</td><td>${reportMoney(x.stock_value)}</td></tr>`,
   8
 );
 
 // 10. Monthly Issue & Return Report
+// Monthly Issue & Return - Central Filter
+const centralMonthlyReport = {};
+
+centralReportData.loans.forEach(loan => {
+  const issueDate = String(loan.issue_date || '').slice(0, 10);
+  const returnDate = String(loan.return_date || '').slice(0, 10);
+
+  if (issueDate) {
+    const month = issueDate.slice(0, 7);
+
+    if (!centralMonthlyReport[month]) {
+      centralMonthlyReport[month] = {
+        month,
+        issued: 0,
+        returned: 0
+      };
+    }
+
+    centralMonthlyReport[month].issued++;
+  }
+
+  if (returnDate) {
+    const month = returnDate.slice(0, 7);
+
+    if (!centralMonthlyReport[month]) {
+      centralMonthlyReport[month] = {
+        month,
+        issued: 0,
+        returned: 0
+      };
+    }
+
+    centralMonthlyReport[month].returned++;
+  }
+});
+
 $('monthlyRows').innerHTML = reportRows(
-  r.monthlyIssuesReturns,
+  Object.values(centralMonthlyReport).sort((a, b) =>
+    a.month.localeCompare(b.month)
+  ),
   x => `<tr><td>${safe(x.month)}</td><td>${safe(x.issued)}</td><td>${safe(x.returned)}</td></tr>`,
   3
 );
