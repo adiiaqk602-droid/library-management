@@ -1039,8 +1039,10 @@
     </thead>
     <tbody id="dailyReturnRows">
       <tr><td colspan="8">Select date and apply filter.</td></tr>
-    </tbody>
+       </tbody>
   </table>
+</div>
+
 <!-- OVERDUE REPORT -->
 <div class="tableWrap">
   <h3>Overdue Books Report</h3>
@@ -1072,6 +1074,43 @@
     </thead>
     <tbody id="overdueRows">
       <tr><td colspan="8">Click Refresh Overdue Report.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- STUDENT WISE REPORT -->
+<div class="tableWrap">
+  <h3>Student Wise Report</h3>
+
+  <div class="formGrid">
+    <input type="search" id="studentReportSearch"
+      placeholder="Search student name or membership ID">
+
+    <button type="button" id="applyStudentReport">
+      Apply Filter
+    </button>
+
+    <button type="button" class="secondary" id="printStudentReport">
+      Print Student Wise Report
+    </button>
+  </div>
+
+  <div id="studentReportSummary" class="stats"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Student Name</th>
+        <th>Membership ID</th>
+        <th>Total Issues</th>
+        <th>Currently Issued</th>
+        <th>Returned</th>
+        <th>Overdue</th>
+        <th>Total Fine (Rs.)</th>
+      </tr>
+    </thead>
+    <tbody id="studentReportRows">
+      <tr><td colspan="7">Click Apply Filter.</td></tr>
     </tbody>
   </table>
 </div>
