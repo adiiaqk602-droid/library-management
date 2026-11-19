@@ -1041,6 +1041,40 @@
       <tr><td colspan="8">Select date and apply filter.</td></tr>
     </tbody>
   </table>
+<!-- OVERDUE REPORT -->
+<div class="tableWrap">
+  <h3>Overdue Books Report</h3>
+
+  <div class="formGrid">
+    <button type="button" id="applyOverdueReport">
+      Refresh Overdue Report
+    </button>
+
+    <button type="button" class="secondary" id="printOverdueReport">
+      Print Overdue Report
+    </button>
+  </div>
+
+  <div id="overdueSummary" class="stats"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Student Name</th>
+        <th>Membership ID</th>
+        <th>Book Title</th>
+        <th>Copy Number</th>
+        <th>Library</th>
+        <th>Issue Date</th>
+        <th>Due Date</th>
+        <th>Days Overdue</th>
+      </tr>
+    </thead>
+    <tbody id="overdueRows">
+      <tr><td colspan="8">Click Refresh Overdue Report.</td></tr>
+    </tbody>
+  </table>
+</div>
 </div><div id="fineSettings" class="hidden"><h3>Fine settings (Super Admin)</h3><form id="settingsForm" class="formGrid"><label>Fine per late day (Rs.)<input name="fine_per_day" type="number" min="0" step="1"></label><label>Damaged fine (%)<input name="damaged_fine_percent" type="number" min="0" step="1"></label><label>Lost book extra fine (Rs.)<input name="lost_book_extra_fine" type="number" min="0" step="1"></label><label>Loan period (days)<input name="loan_days" type="number" min="1" step="1"></label><button type="submit">Save Fine Settings</button></form></div><button class="secondary" id="printReports">Print reports</button></section>
 <section id="users" class="tab panel hidden"><h2>Librarian Accounts</h2><p>Only Super Admin can create or disable librarian accounts. Use a unique password of at least 12 characters.</p><form id="userForm" class="formGrid"><label>Full name *<input name="full_name" required></label><label>Email *<input name="email" type="email" required></label><label>Assigned library<select name="library_id" id="userLibrary" required></select></label><label>Temporary password *<input name="password" type="password" minlength="12" required autocomplete="new-password"></label><button type="submit">Create Librarian</button></form><div class="tableWrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Library</th><th>Status</th><th>Action</th></tr></thead><tbody id="userRows"></tbody></table></div></section>
 
