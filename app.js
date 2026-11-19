@@ -1602,6 +1602,137 @@ $('printDailyReturnReport').onclick = () => {
 
   printWindow.document.close();
 };
+
+// OVERDUE REPORT
+let overdueFiltered = [];
+
+const getOverdueRecords = () => {
+  const now = new Date();
+  const today =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  overdueFiltered = (state.loans || []).filter(l => {
+    const status = String(l.status || '').toLowerCase();
+    const dueDate = String(l.due_date || '').slice(0, 10);
+    const returnDate = String(l.return_date || '').trim();
+
+    return (
+      (status === 'issued' || status === 'overdue') &&
+      !returnDate &&
+      dueDate &&
+      dueDate < today
+    );
+  }).map(l => {
+    const dueDate = String(l.due_date).slice(0, 10);
+    const today = new Date();
+    const todayString =
+      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const due = new Date(dueDate + 'T00:00:00');
+    const current = new Date(todayString + 'T00:00:00');
+
+    const daysOverdue = Math.floor(
+      (current - due) / 86400000
+    );
+
+    return { ...l, days_overdue: daysOverdue };
+  });
+};
+
+const applyOverdueReport = () => {
+  getOverdueRecords();
+
+  $('overdueSummary').innerHTML = `
+    <div class="stat">
+      <span>Total Overdue Books</span>
+      <strong>${overdueFiltered.length}</strong>
+    </div>
+  `;
+
+  $('overdueRows').innerHTML =
+    overdueFiltered.map(l => `
+      <tr>
+        <td>${safe(l.full_name || '')}</td>
+        <td>${safe(l.member_no || '')}</td>
+        <td>${safe(l.title || '')}</td>
+        <td>${safe(l.copy_code || '')}</td>
+        <td>${safe(l.library_name || '')}</td>
+        <td>${safe(l.issue_date || '')}</td>
+        <td>${safe(l.due_date || '')}</td>
+        <td>${l.days_overdue}</td>
+      </tr>
+    `).join('') ||
+    '<tr><td colspan="8">No overdue books found.</td></tr>';
+};
+
+$('applyOverdueReport').onclick = applyOverdueReport;
+
+$('printOverdueReport').onclick = () => {
+  applyOverdueReport();
+
+  const rows = overdueFiltered.map(l => `
+    <tr>
+      <td>${safe(l.full_name || '')}</td>
+      <td>${safe(l.member_no || '')}</td>
+      <td>${safe(l.title || '')}</td>
+      <td>${safe(l.copy_code || '')}</td>
+      <td>${safe(l.library_name || '')}</td>
+      <td>${safe(l.issue_date || '')}</td>
+      <td>${safe(l.due_date || '')}</td>
+      <td>${l.days_overdue}</td>
+    </tr>
+  `).join('');
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    message('Please allow pop-ups to print this report.');
+    return;
+  }
+
+  printWindow.document.write(`
+    <html>
+    <head>
+      <title>Overdue Books Report</title>
+      <style>
+        body { font-family: Arial; padding: 20px; }
+        h2, h3, p { text-align: center; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #333; padding: 7px; text-align: left; }
+        th { background: #eee; }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School &amp; College</h2>
+      <h3>BS Library - Overdue Books Report</h3>
+      <p>Total Overdue Books: ${overdueFiltered.length}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Membership ID</th>
+            <th>Book Title</th>
+            <th>Copy Number</th>
+            <th>Library</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Days Overdue</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="8">No overdue books found.</td></tr>'}
+        </tbody>
+      </table>
+      <script>
+        window.onload = () => window.print();
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+};
+
 // Filter buttons
 $('applyLoanFilters').onclick = applyLoanFilters;
 
