@@ -1475,7 +1475,133 @@ $('printDailyIssueReport').onclick = () => {
   `);
 
   printWindow.document.close();
-};   
+};
+  // DAILY RETURN REPORT
+const dailyReturnDate = $('dailyReturnDate');
+let dailyReturnFiltered = [];
+
+if (dailyReturnDate) {
+  const now = new Date();
+  dailyReturnDate.value =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+const applyDailyReturnReport = () => {
+  const selectedDate = $('dailyReturnDate').value;
+
+  if (!selectedDate) {
+    message('Please select a return date.');
+    return;
+  }
+
+  dailyReturnFiltered = (state.loans || []).filter(l =>
+    String(l.return_date || '').slice(0, 10) === selectedDate
+  );
+
+  $('dailyReturnSummary').innerHTML = `
+    <div class="stat">
+      <span>Total Books Returned</span>
+      <strong>${dailyReturnFiltered.length}</strong>
+      <span>Total Fine: Rs. ${dailyReturnFiltered.reduce(
+        (sum, l) => sum + Number(l.fine_amount || 0), 0
+      ).toFixed(2)}</span>
+    </div>
+  `;
+
+  $('dailyReturnRows').innerHTML =
+    dailyReturnFiltered.map(l => `
+      <tr>
+        <td>${safe(l.full_name || '')}</td>
+        <td>${safe(l.member_no || '')}</td>
+        <td>${safe(l.title || '')}</td>
+        <td>${safe(l.copy_code || '')}</td>
+        <td>${safe(l.library_name || '')}</td>
+        <td>${safe(l.issue_date || '')}</td>
+        <td>${safe(l.return_date || '')}</td>
+        <td>${Number(l.fine_amount || 0).toFixed(2)}</td>
+      </tr>
+    `).join('') ||
+    '<tr><td colspan="8">No books returned on this date.</td></tr>';
+};
+
+$('applyDailyReturnReport').onclick = applyDailyReturnReport;
+
+$('printDailyReturnReport').onclick = () => {
+  const selectedDate = $('dailyReturnDate').value;
+
+  if (!selectedDate) {
+    message('Please select a return date.');
+    return;
+  }
+
+  const rows = dailyReturnFiltered.map(l => `
+    <tr>
+      <td>${safe(l.full_name || '')}</td>
+      <td>${safe(l.member_no || '')}</td>
+      <td>${safe(l.title || '')}</td>
+      <td>${safe(l.copy_code || '')}</td>
+      <td>${safe(l.library_name || '')}</td>
+      <td>${safe(l.issue_date || '')}</td>
+      <td>${safe(l.return_date || '')}</td>
+      <td>${Number(l.fine_amount || 0).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  const totalFine = dailyReturnFiltered.reduce(
+    (sum, l) => sum + Number(l.fine_amount || 0), 0
+  );
+
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    message('Please allow pop-ups to print this report.');
+    return;
+  }
+
+  printWindow.document.write(`
+    <html>
+    <head>
+      <title>Daily Return Report</title>
+      <style>
+        body { font-family: Arial; padding: 20px; }
+        h2, h3, p { text-align: center; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #333; padding: 7px; text-align: left; }
+        th { background: #eee; }
+      </style>
+    </head>
+    <body>
+      <h2>Dr A Q Khan School &amp; College</h2>
+      <h3>BS Library - Daily Return Report</h3>
+      <p>Return Date: ${safe(selectedDate)}</p>
+      <p>Total Books Returned: ${dailyReturnFiltered.length}</p>
+      <p>Total Fine: Rs. ${totalFine.toFixed(2)}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Membership ID</th>
+            <th>Book Title</th>
+            <th>Copy Number</th>
+            <th>Library</th>
+            <th>Issue Date</th>
+            <th>Return Date</th>
+            <th>Fine (Rs.)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="8">No records found.</td></tr>'}
+        </tbody>
+      </table>
+      <script>
+        window.onload = () => window.print();
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+};
 // Filter buttons
 $('applyLoanFilters').onclick = applyLoanFilters;
 
